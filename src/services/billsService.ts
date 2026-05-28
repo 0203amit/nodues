@@ -104,6 +104,17 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/** Parse a comma-separated file ID string into an array. Handles empty/whitespace/double commas. */
+export function parseFileIds(csv: string): string[] {
+  if (!csv || !csv.trim()) return [];
+  return csv.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/** Join an array of file IDs into a comma-separated string. Filters out empty values. */
+export function serializeFileIds(ids: string[]): string {
+  return ids.filter(Boolean).join(',');
+}
+
 // --- Parse / Serialize ---
 
 const VALID_STATUSES: string[] = ['pending', 'paid', 'not_yet_generated', 'skipped'];
@@ -340,4 +351,48 @@ export async function undoDeleteBill(
   bill: Bill,
 ): Promise<void> {
   await updateCell(accessToken, spreadsheetId, TAB_NAME, bill._rowIndex, COL.deleted_at, '');
+}
+
+/** Append a Drive file ID to a bill's file column with full-row-safety. */
+export async function addFileIdToBill(
+  accessToken: string,
+  spreadsheetId: string,
+  bill: Bill,
+  fileId: string,
+  column: 'bill_file_ids' | 'receipt_file_ids',
+): Promise<Bill> {
+  const fieldKey = column === 'bill_file_ids' ? 'billFileIds' : 'receiptFileIds';
+  const existingIds = parseFileIds(bill[fieldKey]);
+  existingIds.push(fileId);
+
+  const updatedBill: Bill = {
+    ...bill,
+    [fieldKey]: serializeFileIds(existingIds),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await updateRow(accessToken, spreadsheetId, TAB_NAME, bill._rowIndex, serializeRow(updatedBill));
+  return updatedBill;
+}
+
+/** Remove a Drive file ID from a bill's file column with full-row-safety. */
+export async function removeFileIdFromBill(
+  accessToken: string,
+  spreadsheetId: string,
+  bill: Bill,
+  fileId: string,
+  column: 'bill_file_ids' | 'receipt_file_ids',
+): Promise<Bill> {
+  const fieldKey = column === 'bill_file_ids' ? 'billFileIds' : 'receiptFileIds';
+  const existingIds = parseFileIds(bill[fieldKey]);
+  const filtered = existingIds.filter(id => id !== fileId);
+
+  const updatedBill: Bill = {
+    ...bill,
+    [fieldKey]: serializeFileIds(filtered),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await updateRow(accessToken, spreadsheetId, TAB_NAME, bill._rowIndex, serializeRow(updatedBill));
+  return updatedBill;
 }
