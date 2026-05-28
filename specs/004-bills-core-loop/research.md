@@ -20,7 +20,7 @@
 
 **Rationale**: Storing "overdue" would require daily batch updates to flip pending → overdue as due dates pass, which is impossible without a backend. Computing it at render time is trivial (one date comparison) and always reflects the current state.
 
-**Implementation**: A `computeDisplayStatus(bill: Bill): BillDisplayStatus` function returns the display status by checking the stored status and comparing `due_date` against today's date.
+**Implementation**: A `computeDisplayStatus(status, dueDate, today?)` pure function returns the display status. It accepts an optional `today` parameter for testability.
 
 ## R3: Composite Key Computation — Including property_id
 
@@ -36,7 +36,7 @@
 
 **Rationale**: The user should not need to manually calculate due dates. Pre-filling saves time and reduces errors. Clamping is necessary because months have different lengths (e.g., February has 28-29 days, but a bill type might have `default_due_day = 31`).
 
-**Implementation**: Use `new Date(year, month, 0).getDate()` to get the last day of the month (where month is 1-based). If `default_due_day > lastDay`, use `lastDay`. Construct `YYYY-MM-DD` string. This computation runs in the form component whenever bill type or month changes.
+**Implementation**: Use `new Date(year, month, 0).getDate()` to get the last day of the month (where month is 1-based). If `default_due_day > lastDay`, use `lastDay`. Construct `YYYY-MM-DD` string. This computation runs in the form component whenever bill type or month changes, but only if the user hasn't manually edited the due date (tracked via a `userEditedDueDate` flag).
 
 ## R5: Full-Row Safety Pattern for Bill Updates
 
@@ -44,7 +44,7 @@
 
 **Rationale**: The Bills tab has 18 columns, many of which are out of scope for this phase (bill_file_ids, receipt_file_ids, calendar_event_ids). If we only wrote the editable columns, the other columns would be blanked out. The full-row write preserves all values — including future-phase columns that may have been populated by then.
 
-**Implementation**: `serializeRow(bill: Bill)` converts the full Bill object to a string array. Update functions start with the existing bill, modify specific fields, then serialize and write the full row. This mirrors the pattern in `propertiesService.ts` and `billTypesService.ts`.
+**Implementation**: `serializeRow(bill: Bill)` converts the full Bill object to a string array. Update functions start with the existing bill object (which holds all current values), modify specific fields, then serialize and write the full row. This mirrors the pattern in `propertiesService.ts` and `billTypesService.ts`.
 
 ## R6: Sort Order for Bills List
 
@@ -68,16 +68,55 @@
 
 **Rationale**: The bill forms have different fields and behaviors (pre-fill from bill type, month picker, read-only bill type on edit) that warrant their own components. However, the modal shell (backdrop, panel, Escape key, button styles) follows the identical MASTER.md pattern. Code reuse is at the pattern level, not the component level.
 
-## R9: BillRow Component — Following MASTER.md Reference
+## R9: BillCard Component — Following MASTER.md Section 11 Reference
 
-**Decision**: Implement the BillRow component based on the reference in MASTER.md section 11, adapting it to include action buttons (Mark Paid, Edit, Delete) alongside the status badge and amount.
+**Decision**: Implement the BillCard component based on the BillRow reference in MASTER.md section 11, adapting it to include action buttons (Mark Paid, Edit, Delete) alongside the status badge and amount.
 
 **Rationale**: MASTER.md provides a tested, accessible reference implementation for the bill list item. Adding action buttons follows the same pattern as PropertyCard and BillTypeCard from Phase 3 (inline ghost buttons with Lucide icons).
 
-**Implementation**: The MASTER.md BillRow is a `<button>` navigating to a detail page. Since there's no detail page in Phase 4, the row will be a `<div>` with action buttons. The visual layout (icon + name/property/month on the left, amount + status badge on the right) follows the reference exactly.
+**Implementation**: The MASTER.md BillRow is a `<button>` navigating to a detail page. Since there's no detail page in Phase 4, the card will be a `<div>` with action buttons in a row at the bottom. The visual layout (Receipt icon + name/property/month on the left, amount + status badge on the right) follows the reference exactly.
 
 ## R10: No New sheetsService Extensions Needed
 
 **Decision**: The existing `sheetsService.ts` functions (`readAllRows`, `updateRow`, `updateCell`, `appendRows`) are sufficient for all Bills operations. No new generic Sheet helpers are needed.
 
 **Rationale**: Phase 3 already added all the generic Sheet operations needed. The Bills service layer (`billsService.ts`) will call these existing functions with the `'Bills'` tab name. The only new code is in the domain service (`billsService.ts`) for parsing, serializing, and enriching bill data.
+
+## R11: BillStatusBadge — New Component vs Extending StatusBadge
+
+**Decision**: Create a new `BillStatusBadge` component in `src/components/shared/` rather than extending the existing `StatusBadge`.
+
+**Rationale**: The existing `StatusBadge` handles two states (active/inactive) with a boolean prop. The bill status badge has five states, each with a unique color, icon, and label. Extending `StatusBadge` would make its interface awkward (two entirely different prop shapes). A separate component keeps both clean and focused.
+
+**Alternatives considered**:
+- Extend StatusBadge with a `variant` prop: Would mix unrelated concerns (entity active/inactive vs. bill payment status). Rejected.
+- Generic Badge component: Over-engineering for the current scope. The two badge components are small (~15 lines each). Rejected.
+
+## R12: Month Input — Native `type="month"` vs Custom
+
+**Decision**: Use native `<input type="month">` which renders as "YYYY-MM" and provides a built-in month picker on supported browsers.
+
+**Rationale**: `type="month"` is supported on Chrome, Edge, and mobile browsers (our primary targets). It returns "YYYY-MM" format directly, matching the `month` column format in the Sheet. No date library needed.
+
+**Alternatives considered**:
+- Custom dropdown with month/year selectors: More code, no benefit over native. Rejected.
+- Text input with pattern validation: Worse UX. Rejected.
+
+## R13: "Open Existing" Scroll Behavior
+
+**Decision**: Use a `useRef<Map<string, HTMLDivElement>>` in `BillsPage` to store refs for each BillCard. On "Open existing", close the modal and call `scrollIntoView({ behavior: 'smooth', block: 'center' })` on the matching bill's ref.
+
+**Rationale**: React refs are the standard way to imperatively scroll to elements. A Map keyed by bill ID allows O(1) lookup. The ref callback pattern works well with list rendering.
+
+**Alternatives considered**:
+- URL hash fragment: Would require full page navigation machinery. Rejected.
+
+## R14: Refetch After Add — Why Not Optimistic Insert
+
+**Decision**: Refetch all bills after add (same pattern as Phase 3's `addBillType`).
+
+**Rationale**: After `appendRows`, the new row's `_rowIndex` is unknown. Since `_rowIndex` is needed for subsequent `updateRow`/`updateCell` calls (edit, mark paid, delete), we must refetch to get the correct row index. This is consistent with the Phase 3 pattern. The extra 1-2 second latency is acceptable for an add operation.
+
+**Alternatives considered**:
+- Optimistic insert with estimated rowIndex: Fragile — another tab could have added rows. Rejected.
+- Read only the last row after append: Sheets API doesn't return the appended row index reliably. Rejected.

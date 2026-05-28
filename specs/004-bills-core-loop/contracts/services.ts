@@ -23,16 +23,21 @@ import type {
  * display status.
  *
  * Implementation notes:
- * - Reads Bills, BillTypes, and Properties tabs in parallel.
+ * - Reads Bills tab via readAllRows.
  * - Parses bill rows, skips nulls, filters out deleted_at !== ''.
- * - Resolves bill_type_id → BillType.name and BillType.property_id → Property.name.
+ * - Resolves bill_type_id → name/propertyId/propertyName via the provided map
+ *   (built at the page level from fetchBillTypes results to avoid redundant reads).
  * - Computes displayStatus from stored status + due_date vs today.
  * - Sorts result: overdue first (asc by due_date), pending (asc by due_date),
  *   not_yet_generated (asc by month), paid (desc by paid_date), skipped.
+ *
+ * @param billTypeMap - Map of bill_type_id → { name, propertyId, propertyName }
+ *   built from fetchBillTypes() results at the page level.
  */
 export type FetchBills = (
   accessToken: string,
   spreadsheetId: string,
+  billTypeMap: Map<string, { name: string; propertyId: string; propertyName: string }>,
 ) => Promise<BillWithDisplay[]>;
 
 /**
