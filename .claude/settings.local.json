@@ -7,7 +7,19 @@
       "Bash(curl:*)",
       "Bash(powershell -Command:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"google-sign-in\" \"Google Sign-In for NoDues \\(Phase 1 Step 3\\)\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/setup-plan.ps1 -Json)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:www.oauth.com)",
+      "WebFetch(domain:googleapis.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:react-oauth.vercel.app)",
+      "WebFetch(domain:reactjsexample.com)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/setup-tasks.ps1 -Json)"
     ]
   }
 }
