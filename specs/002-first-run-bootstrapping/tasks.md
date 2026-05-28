@@ -120,7 +120,7 @@
 
 ### Context (depends on T007)
 
-- [ ] T008 [US2] Implement BootstrapContext provider in `src/contexts/BootstrapContext.tsx`
+- [X] T008 [US2] Implement BootstrapContext provider in `src/contexts/BootstrapContext.tsx`
   - Create `BootstrapContext` with `React.createContext<BootstrapContextValue | null>(null)`
   - Export `BootstrapProvider` component that:
     - Gets `accessToken` from `useAuth()` (existing AuthContext)
@@ -148,7 +148,7 @@
 
 ### UI Component (depends on T008)
 
-- [ ] T009 [US3] Implement BootstrapGuard component in `src/components/bootstrap/BootstrapGuard.tsx`
+- [X] T009 [US3] Implement BootstrapGuard component in `src/components/bootstrap/BootstrapGuard.tsx`
   - Consumes `useBootstrap()` hook to read state
   - **Complete state** (`status === 'complete'`): render `children` — no success screen, user lands on dashboard immediately
   - **Progress state** (`status === 'detecting' | 'bootstrapping'`): render full-screen centered card per plan.md UI design:
@@ -179,7 +179,7 @@
 
 **Purpose**: Wire BootstrapProvider and BootstrapGuard into the component tree, and update the dashboard
 
-- [ ] T010 [P] Modify `src/App.tsx` to wrap authenticated routes with BootstrapProvider and BootstrapGuard
+- [X] T010 [P] Modify `src/App.tsx` to wrap authenticated routes with BootstrapProvider and BootstrapGuard
   - Import `BootstrapProvider` from `src/contexts/BootstrapContext.tsx`
   - Import `BootstrapGuard` from `src/components/bootstrap/BootstrapGuard.tsx`
   - Wrap **all** protected routes (dashboard, bills, todos, settings) inside `<BootstrapProvider>` → `<BootstrapGuard>` as shown in plan.md component architecture
@@ -187,7 +187,7 @@
   - `BootstrapGuard` renders its children (the `<Routes>` containing protected pages) only when `status === 'complete'`
   - Do NOT wrap the landing page or unauthenticated routes
 
-- [ ] T011 [P] Update `src/pages/DashboardPage.tsx` to reference setup result
+- [X] T011 [P] Update `src/pages/DashboardPage.tsx` to reference setup result
   - Import `useBootstrap()` hook
   - Replace placeholder welcome text with real content that references `setupResult` (e.g., display that the workspace is ready)
   - Keep changes minimal — this is about removing the placeholder and confirming the bootstrap result is accessible, not building full dashboard features

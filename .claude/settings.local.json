@@ -23,7 +23,8 @@
       "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"first-run-bootstrapping\" \"First-Run Bootstrapping — Google Sheet, Drive Folder, Calendar, and Seed Data\")",
       "WebFetch(domain:issuetracker.google.com)",
       "WebFetch(domain:groups.google.com)",
-      "WebFetch(domain:support.google.com)"
+      "WebFetch(domain:support.google.com)",
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)"
     ]
   }
 }

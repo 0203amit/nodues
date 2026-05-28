@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { APP_TITLE_SUFFIX } from "../config/branding";
 import { useAuth } from "../contexts/AuthContext";
+import { useBootstrap } from "../contexts/BootstrapContext";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { setupResult } = useBootstrap();
 
   useEffect(() => {
     document.title = `${APP_TITLE_SUFFIX} · Dashboard`;
@@ -19,9 +21,11 @@ export default function DashboardPage() {
           Signed in as {user.email}
         </p>
       )}
-      <p className="mt-4 text-sm text-slate-500">
-        Pending bills and to-dos will appear here.
-      </p>
+      {setupResult && (
+        <p className="mt-4 text-sm text-slate-600">
+          Your workspace is ready. Pending bills and to-dos will appear here.
+        </p>
+      )}
     </div>
   );
 }

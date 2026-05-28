@@ -1,5 +1,7 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
+import { BootstrapProvider } from "./contexts/BootstrapContext";
+import BootstrapGuard from "./components/bootstrap/BootstrapGuard";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Navbar from "./components/shared/Navbar";
 import LandingPage from "./pages/LandingPage";
@@ -7,6 +9,16 @@ import DashboardPage from "./pages/DashboardPage";
 import BillsPage from "./pages/BillsPage";
 import TodosPage from "./pages/TodosPage";
 import SettingsPage from "./pages/SettingsPage";
+
+function BootstrapLayout() {
+  return (
+    <BootstrapProvider>
+      <BootstrapGuard>
+        <Outlet />
+      </BootstrapGuard>
+    </BootstrapProvider>
+  );
+}
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -26,10 +38,12 @@ export default function App() {
               )
             }
           />
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/bills" element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
-          <Route path="/todos" element={<ProtectedRoute><TodosPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          <Route element={<BootstrapLayout />}>
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/bills" element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
+            <Route path="/todos" element={<ProtectedRoute><TodosPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          </Route>
         </Routes>
       </main>
     </div>
