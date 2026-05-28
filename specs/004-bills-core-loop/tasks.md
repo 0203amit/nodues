@@ -309,7 +309,7 @@
 
 **Purpose**: Wire all components, modals, service calls, filters, and state management into BillsPage. This is the orchestrator.
 
-- [ ] T019 Rewrite `src/pages/BillsPage.tsx` — full page with data loading, filters, list rendering, and all CRUD wiring
+- [X] T019 Rewrite `src/pages/BillsPage.tsx` — full page with data loading, filters, list rendering, and all CRUD wiring
 
   Replace the placeholder. Import all services and components.
 
@@ -382,7 +382,7 @@
 
 **Purpose**: Add client-side validation to form modals.
 
-- [ ] T020 [P] Add client-side validation to `BillFormModal` in `src/components/bills/BillFormModal.tsx`
+- [X] T020 [P] Add client-side validation to `BillFormModal` in `src/components/bills/BillFormModal.tsx`
 
   Validate on submit, block if errors:
   - `billTypeId`: Required. Error: "Please select a bill type."
@@ -405,14 +405,14 @@
 
 **Purpose**: Final adjustments ensuring spec compliance across all new files.
 
-- [ ] T022 [P] Wire BillCard `ref` registration for scroll-to-existing in `src/components/bills/BillCard.tsx` and `src/pages/BillsPage.tsx`
+- [X] T022 [P] Wire BillCard `ref` registration for scroll-to-existing in `src/components/bills/BillCard.tsx` and `src/pages/BillsPage.tsx`
 
   Ensure "Open existing" scrolls correctly:
   - Each BillCard registers its DOM node in `billRefs` map via a ref callback.
   - On "Open existing": `billRefs.current.get(existingBill.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })`.
   - Add a brief highlight flash (e.g., `ring-2 ring-indigo-500` for 2 seconds via setTimeout) so the user spots the card.
 
-- [ ] T023 [P] Verify MASTER.md compliance across all new components
+- [X] T023 [P] Verify MASTER.md compliance across all new components
 
   Walk MASTER.md Pre-Delivery Checklist (section 10) for each new file:
   `BillStatusBadge.tsx`, `BillCard.tsx`, `BillFormModal.tsx`, `MarkPaidModal.tsx`, `DuplicateWarningModal.tsx`, `BillsPage.tsx`.

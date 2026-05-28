@@ -220,8 +220,7 @@ export async function addBill(
 ): Promise<Bill> {
   const id = uuidv4();
   const parsedAmount = data.amount.trim() === '' ? null : Number(data.amount);
-  const status: BillStatus =
-    parsedAmount !== null && data.dueDate !== '' ? 'pending' : 'not_yet_generated';
+  const status: BillStatus = data.dueDate !== '' ? 'pending' : 'not_yet_generated';
   const now = new Date().toISOString();
   const compositeKey = computeCompositeKey(propertyId, data.billTypeId, data.month);
 
@@ -262,14 +261,12 @@ export async function updateBill(
   const parsedAmount = data.amount.trim() === '' ? null : Number(data.amount);
   const newCompositeKey = computeCompositeKey(propertyId, data.billTypeId, data.month);
 
-  // Auto-flip not_yet_generated → pending when amount + dueDate provided
+  // Auto-flip status based on dueDate (sole driver of pending vs not_yet_generated)
   let newStatus = existingBill.status;
-  if (
-    existingBill.status === 'not_yet_generated' &&
-    parsedAmount !== null &&
-    data.dueDate !== ''
-  ) {
+  if (existingBill.status === 'not_yet_generated' && data.dueDate !== '') {
     newStatus = 'pending';
+  } else if (existingBill.status === 'pending' && data.dueDate === '') {
+    newStatus = 'not_yet_generated';
   }
 
   // Auto-set originalDueDate if previously empty and dueDate now provided
