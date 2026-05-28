@@ -192,7 +192,7 @@
 
 **Independent Test**: Add rows directly in the Google Sheet (or via add flow). Navigate to `/bills`. Verify each bill shows correct badge. Verify sort order. Verify filters.
 
-- [ ] T014 [P] [US2] Create `BillStatusBadge` component in `src/components/shared/BillStatusBadge.tsx`
+- [X] T014 [P] [US2] Create `BillStatusBadge` component in `src/components/shared/BillStatusBadge.tsx`
 
   Props: `{ displayStatus: BillDisplayStatus }`.
   - Status config map:
@@ -206,7 +206,7 @@
   - Icon size: `w-3 h-3`. Import icons from `lucide-react`.
   - Reference: MASTER.md sections 5.2, 11.
 
-- [ ] T015 [P] [US2] Create `BillCard` component in `src/components/bills/BillCard.tsx`
+- [X] T015 [P] [US2] Create `BillCard` component in `src/components/bills/BillCard.tsx`
 
   Props per contracts/components.ts `BillRowProps`: `bill`, `onMarkPaid`, `onEdit`, `onDelete`, `isLoading`.
   - **Layout based on MASTER.md section 11 BillRow** (adapted as `<div>` with action buttons, not a navigation `<button>`):
@@ -230,7 +230,7 @@
 
 **Independent Test**: Navigate to `/bills`. Tap "Add Bill". Select bill type, pick month, verify defaults pre-fill. Save. Confirm new row in Sheet with correct UUID, composite_key, status, timestamps.
 
-- [ ] T016 [US1] Create `BillFormModal` component in `src/components/bills/BillFormModal.tsx`
+- [X] T016 [US1] Create `BillFormModal` component in `src/components/bills/BillFormModal.tsx`
 
   Props per contracts/components.ts `BillFormModalProps`: `bill` (null=add), `availableBillTypes`, `isSaving`, `onSubmit`, `onClose`.
   - Modal shell per MASTER.md section 5.6 (follow BillTypeFormModal pattern).
@@ -256,7 +256,7 @@
 
 **Independent Test**: Find a pending bill. Tap "Mark Paid". Fill form. Save. Verify badge → green "Paid", Sheet columns updated.
 
-- [ ] T017 [P] [US3] Create `MarkPaidModal` component in `src/components/bills/MarkPaidModal.tsx`
+- [X] T017 [P] [US3] Create `MarkPaidModal` component in `src/components/bills/MarkPaidModal.tsx`
 
   Props per contracts/components.ts `MarkPaidModalProps`: `bill`, `isSaving`, `onSubmit`, `onClose`.
   - Modal shell per MASTER.md section 5.6.
@@ -278,7 +278,7 @@
 
 **Independent Test**: Add a bill. Try adding another with same type+month. Verify warning modal. Test all 3 options.
 
-- [ ] T018 [P] [US5] Create `DuplicateWarningModal` component in `src/components/bills/DuplicateWarningModal.tsx`
+- [X] T018 [P] [US5] Create `DuplicateWarningModal` component in `src/components/bills/DuplicateWarningModal.tsx`
 
   Props per contracts/components.ts `DuplicateWarningModalProps`: `existingBill`, `onOpenExisting`, `onAddAnyway`, `onCancel`.
   - Modal shell per MASTER.md section 5.6.
