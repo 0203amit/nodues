@@ -16,8 +16,10 @@ import {
   checkDuplicate,
   sortBills,
   formatMonth,
+  computeDisplayStatus,
 } from '../services/billsService';
 import type {
+  Bill,
   BillFormData,
   BillTypeWithProperty,
   BillWithDisplay,
@@ -28,6 +30,7 @@ import BillCard from '../components/bills/BillCard';
 import BillFormModal from '../components/bills/BillFormModal';
 import MarkPaidModal from '../components/bills/MarkPaidModal';
 import DuplicateWarningModal from '../components/bills/DuplicateWarningModal';
+import AttachmentsModal from '../components/bills/AttachmentsModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
@@ -35,6 +38,7 @@ export default function BillsPage() {
   const { accessToken } = useAuth();
   const { setupResult } = useBootstrap();
   const spreadsheetId = setupResult!.spreadsheetId;
+  const folderId = setupResult!.folderId;
   const { showToast, showUndo } = useToast();
 
   // --- State ---
@@ -51,6 +55,7 @@ export default function BillsPage() {
   // Modals / action targets
   const [markPaidTarget, setMarkPaidTarget] = useState<BillWithDisplay | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BillWithDisplay | null>(null);
+  const [attachmentsTarget, setAttachmentsTarget] = useState<BillWithDisplay | null>(null);
   const [formModal, setFormModal] = useState<{
     mode: 'add' | 'edit';
     bill?: BillWithDisplay;
@@ -351,6 +356,32 @@ export default function BillsPage() {
     }
   }
 
+  // --- Attachments ---
+  function handleViewAttachments(bill: BillWithDisplay) {
+    setAttachmentsTarget(bill);
+  }
+
+  function handleBillUpdated(updatedBill: Bill) {
+    setBills((prev) =>
+      prev.map((b) => {
+        if (b.id !== updatedBill.id) return b;
+        return {
+          ...b,
+          ...updatedBill,
+          displayStatus: computeDisplayStatus(updatedBill.status, updatedBill.dueDate),
+        };
+      }),
+    );
+    setAttachmentsTarget((prev) => {
+      if (!prev || prev.id !== updatedBill.id) return prev;
+      return {
+        ...prev,
+        ...updatedBill,
+        displayStatus: computeDisplayStatus(updatedBill.status, updatedBill.dueDate),
+      };
+    });
+  }
+
   // --- Ref callback for BillCard registration ---
   function registerBillRef(billId: string) {
     return (el: HTMLDivElement | null) => {
@@ -474,6 +505,7 @@ export default function BillsPage() {
               bill={bill}
               onMarkPaid={handleMarkPaid}
               onEdit={handleEdit}
+              onViewAttachments={handleViewAttachments}
               onDelete={handleDelete}
               isLoading={isSaving}
             />
@@ -521,6 +553,16 @@ export default function BillsPage() {
           confirmVariant="destructive"
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Attachments Modal */}
+      {attachmentsTarget && (
+        <AttachmentsModal
+          bill={attachmentsTarget}
+          folderId={folderId}
+          onBillUpdated={handleBillUpdated}
+          onClose={() => setAttachmentsTarget(null)}
         />
       )}
     </div>

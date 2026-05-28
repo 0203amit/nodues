@@ -1,23 +1,28 @@
 import { forwardRef } from 'react';
-import { Receipt, Pencil, Trash2 } from 'lucide-react';
+import { Paperclip, Pencil, Receipt, Trash2 } from 'lucide-react';
 import type { BillWithDisplay } from '../../types';
-import { formatMonth, formatCurrency } from '../../services/billsService';
+import { formatMonth, formatCurrency, parseFileIds } from '../../services/billsService';
 import BillStatusBadge from '../shared/BillStatusBadge';
 
 export interface BillCardProps {
   bill: BillWithDisplay;
   onMarkPaid: (bill: BillWithDisplay) => void;
   onEdit: (bill: BillWithDisplay) => void;
+  onViewAttachments: (bill: BillWithDisplay) => void;
   onDelete: (bill: BillWithDisplay) => void;
   isLoading: boolean;
 }
 
 const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
-  { bill, onMarkPaid, onEdit, onDelete, isLoading },
+  { bill, onMarkPaid, onEdit, onViewAttachments, onDelete, isLoading },
   ref,
 ) {
   const showMarkPaid =
     bill.displayStatus === 'pending' || bill.displayStatus === 'overdue';
+
+  const attachmentCount =
+    parseFileIds(bill.billFileIds).length +
+    parseFileIds(bill.receiptFileIds).length;
 
   return (
     <div
@@ -81,6 +86,27 @@ const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
             <span>Mark Paid</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => onViewAttachments(bill)}
+          disabled={isLoading}
+          className="text-slate-600 hover:text-slate-800 hover:bg-slate-100
+                     font-medium text-sm px-2 py-1 rounded transition-colors cursor-pointer
+                     min-h-11 min-w-11 inline-flex items-center justify-center gap-1
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          aria-label={
+            attachmentCount > 0
+              ? `View ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`
+              : 'Add or view attachments'
+          }
+        >
+          <Paperclip className="w-4 h-4" />
+          {attachmentCount > 0 && (
+            <span className="text-xs tabular-nums">{attachmentCount}</span>
+          )}
+        </button>
 
         <button
           type="button"

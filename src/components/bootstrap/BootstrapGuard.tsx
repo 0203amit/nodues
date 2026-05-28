@@ -63,7 +63,12 @@ function StepIndicator({
 
 export default function BootstrapGuard({ children }: { children: ReactNode }) {
   const { status, currentStep, completedSteps, error, retry } = useBootstrap();
-  const { signOut } = useAuth();
+  const { signOut, isAuthenticated } = useAuth();
+
+  // Not authenticated: pass through so ProtectedRoute can redirect to "/"
+  if (!isAuthenticated) {
+    return <>{children}</>;
+  }
 
   // Complete: render children immediately (no success screen)
   if (status === 'complete') {
