@@ -24,7 +24,8 @@
       "WebFetch(domain:issuetracker.google.com)",
       "WebFetch(domain:groups.google.com)",
       "WebFetch(domain:support.google.com)",
-      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)"
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -8,7 +8,7 @@
 
 ## Group 1: Shared Types
 
-### T001 — Create shared types file `src/types/index.ts`
+### [X] T001 — Create shared types file `src/types/index.ts`
 
 **File**: `src/types/index.ts` (NEW)
 
@@ -32,7 +32,7 @@ Create the shared TypeScript types used by all services and components.
 
 ## Group 2: sheetsService Extensions
 
-### T002 — Add `readAllRows`, `updateRow`, `updateCell` to `sheetsService.ts`
+### [X] T002 — Add `readAllRows`, `updateRow`, `updateCell` to `sheetsService.ts`
 
 **File**: `src/services/sheetsService.ts` (MODIFIED)
 
@@ -65,7 +65,7 @@ Add three generic Sheet helper functions. These extend the existing service — 
 
 ## Group 3: Domain Services
 
-### T003 — Create `propertiesService.ts` with parseRow, serializeRow, fetchProperties, addProperty [P]
+### [X] T003 — Create `propertiesService.ts` with parseRow, serializeRow, fetchProperties, addProperty [P]
 
 **File**: `src/services/propertiesService.ts` (NEW)
 
@@ -102,7 +102,7 @@ Implement the core read/create functions for properties.
 
 **Verify**: Import compiles. `npx tsc --noEmit`.
 
-### T004 — Add updateProperty, togglePropertyActive, softDeleteProperty, undoDeleteProperty [P]
+### [X] T004 — Add updateProperty, togglePropertyActive, softDeleteProperty, undoDeleteProperty [P]
 
 **File**: `src/services/propertiesService.ts` (continued)
 
@@ -132,7 +132,7 @@ Add the remaining mutation functions to propertiesService.
 
 **Verify**: Import compiles. `npx tsc --noEmit`.
 
-### T005 — Create `billTypesService.ts` with parseRow, serializeRow, fetchBillTypes, addBillType [P]
+### [X] T005 — Create `billTypesService.ts` with parseRow, serializeRow, fetchBillTypes, addBillType [P]
 
 **File**: `src/services/billTypesService.ts` (NEW)
 
@@ -173,7 +173,7 @@ Implement the core read/create functions for bill types.
 
 **Verify**: Import compiles. `npx tsc --noEmit`.
 
-### T006 — Add updateBillType, toggleBillTypeActive, softDeleteBillType, undoDeleteBillType [P]
+### [X] T006 — Add updateBillType, toggleBillTypeActive, softDeleteBillType, undoDeleteBillType [P]
 
 **File**: `src/services/billTypesService.ts` (continued)
 

@@ -1,5 +1,7 @@
 import { googleApiFetch, withRetry, columnLetter, GoogleApiRequestError } from './googleApi';
 import type { HeaderDefinition } from '../config/schema';
+import { HEADER_DEFINITIONS } from '../config/schema';
+import type { RowWithIndex } from '../types';
 
 // --- Types ---
 
@@ -138,4 +140,52 @@ export async function writeValues(
       },
     ),
   );
+}
+
+// --- Generic row helpers ---
+
+function getLastColumnLetter(tabName: string): string {
+  const def = HEADER_DEFINITIONS.find((d) => d.tabName === tabName);
+  if (!def) throw new Error(`No header definition found for tab: ${tabName}`);
+  return columnLetter(def.headers.length);
+}
+
+/** Read all data rows from a tab (skips header row 1). Returns each row with its 1-based row index. */
+export async function readAllRows(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string,
+): Promise<RowWithIndex[]> {
+  const lastCol = getLastColumnLetter(tabName);
+  const range = `'${tabName}'!A2:${lastCol}`;
+  const result = await readValues(accessToken, spreadsheetId, range);
+  if (!result?.values) return [];
+  return result.values.map((row, i) => ({ rowIndex: i + 2, values: row }));
+}
+
+/** Overwrite a full row at a given 1-based row index. */
+export async function updateRow(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string,
+  rowIndex: number,
+  values: string[],
+): Promise<void> {
+  const lastCol = getLastColumnLetter(tabName);
+  const range = `'${tabName}'!A${rowIndex}:${lastCol}${rowIndex}`;
+  await writeValues(accessToken, spreadsheetId, range, [values]);
+}
+
+/** Update a single cell. columnIndex is 0-based. */
+export async function updateCell(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string,
+  rowIndex: number,
+  columnIndex: number,
+  value: string,
+): Promise<void> {
+  const letter = columnLetter(columnIndex + 1);
+  const range = `'${tabName}'!${letter}${rowIndex}`;
+  await writeValues(accessToken, spreadsheetId, range, [[value]]);
 }
