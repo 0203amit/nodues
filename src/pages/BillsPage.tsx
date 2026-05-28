@@ -8,6 +8,10 @@ import { fetchBillTypes } from '../services/billTypesService';
 import {
   fetchBills,
   addBill,
+  updateBill,
+  markBillPaid,
+  softDeleteBill,
+  undoDeleteBill,
   computeCompositeKey,
   checkDuplicate,
   sortBills,
@@ -17,18 +21,21 @@ import type {
   BillFormData,
   BillTypeWithProperty,
   BillWithDisplay,
+  MarkPaidFormData,
   Property,
 } from '../types';
 import BillCard from '../components/bills/BillCard';
 import BillFormModal from '../components/bills/BillFormModal';
+import MarkPaidModal from '../components/bills/MarkPaidModal';
 import DuplicateWarningModal from '../components/bills/DuplicateWarningModal';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
 export default function BillsPage() {
   const { accessToken } = useAuth();
   const { setupResult } = useBootstrap();
   const spreadsheetId = setupResult!.spreadsheetId;
-  const { showToast } = useToast();
+  const { showToast, showUndo } = useToast();
 
   // --- State ---
   const [bills, setBills] = useState<BillWithDisplay[]>([]);
@@ -41,7 +48,9 @@ export default function BillsPage() {
   const [filterProperty, setFilterProperty] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
 
-  // Modals
+  // Modals / action targets
+  const [markPaidTarget, setMarkPaidTarget] = useState<BillWithDisplay | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BillWithDisplay | null>(null);
   const [formModal, setFormModal] = useState<{
     mode: 'add' | 'edit';
     bill?: BillWithDisplay;
@@ -177,8 +186,9 @@ export default function BillsPage() {
     // Compute composite key for duplicate check
     const compositeKey = computeCompositeKey(propertyId, data.billTypeId, data.month);
 
-    // Check for duplicates
-    const existingBill = checkDuplicate(compositeKey, bills);
+    // In edit mode, exclude the bill itself from the duplicate check
+    const excludeId = formModal?.mode === 'edit' ? formModal.bill?.id : undefined;
+    const existingBill = checkDuplicate(compositeKey, bills, excludeId);
     if (existingBill) {
       setDuplicateWarning({
         existingBill,
@@ -190,7 +200,11 @@ export default function BillsPage() {
     }
 
     // No duplicate — proceed with save
-    await saveNewBill(data, propertyId);
+    if (formModal?.mode === 'edit' && formModal.bill) {
+      await saveEditBill(data, formModal.bill, propertyId);
+    } else {
+      await saveNewBill(data, propertyId);
+    }
   }
 
   async function saveNewBill(data: BillFormData, propertyId: string) {
@@ -203,6 +217,25 @@ export default function BillsPage() {
       showToast('Bill added.', 'success');
     } catch {
       showToast('Failed to add bill.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveEditBill(
+    data: BillFormData,
+    bill: BillWithDisplay,
+    propertyId: string,
+  ) {
+    setIsSaving(true);
+    try {
+      await updateBill(accessToken!, spreadsheetId, bill, data, propertyId);
+      await refetchBills();
+      setFormModal(null);
+      setDuplicateWarning(null);
+      showToast('Bill updated.', 'success');
+    } catch {
+      showToast('Failed to update bill.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -232,10 +265,14 @@ export default function BillsPage() {
 
   async function handleDuplicateAddAnyway() {
     if (!duplicateWarning) return;
-    const { pendingFormData } = duplicateWarning;
+    const { pendingFormData, pendingMode, editBill } = duplicateWarning;
     const btInfo = billTypeMap.get(pendingFormData.billTypeId);
     const propertyId = btInfo?.propertyId ?? '';
-    await saveNewBill(pendingFormData, propertyId);
+    if (pendingMode === 'edit' && editBill) {
+      await saveEditBill(pendingFormData, editBill, propertyId);
+    } else {
+      await saveNewBill(pendingFormData, propertyId);
+    }
   }
 
   function handleDuplicateCancel() {
@@ -243,17 +280,69 @@ export default function BillsPage() {
     setDuplicateWarning(null);
   }
 
-  // --- No-op handlers for features not yet wired ---
-  function handleMarkPaid() {
-    // Will be wired in final chunk
+  // --- Mark Paid ---
+  function handleMarkPaid(bill: BillWithDisplay) {
+    setMarkPaidTarget(bill);
   }
 
-  function handleEdit() {
-    // Will be wired in final chunk
+  async function handleMarkPaidSubmit(data: MarkPaidFormData) {
+    if (!markPaidTarget) return;
+    setIsSaving(true);
+    try {
+      await markBillPaid(accessToken!, spreadsheetId, markPaidTarget, data);
+      await refetchBills();
+      setMarkPaidTarget(null);
+      showToast('Bill marked as paid.', 'success');
+    } catch {
+      showToast('Failed to mark bill as paid.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function handleDelete() {
-    // Will be wired in final chunk
+  // --- Edit ---
+  function handleEdit(bill: BillWithDisplay) {
+    setFormModal({ mode: 'edit', bill });
+  }
+
+  // --- Delete (optimistic + undo) ---
+  function handleDelete(bill: BillWithDisplay) {
+    setDeleteTarget(bill);
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+
+    const bill = deleteTarget;
+    const originalIndex = bills.findIndex((b) => b.id === bill.id);
+    setDeleteTarget(null);
+
+    // Optimistic remove
+    setBills((prev) => prev.filter((b) => b.id !== bill.id));
+
+    try {
+      await softDeleteBill(accessToken!, spreadsheetId, bill);
+      showUndo('Bill deleted.', async () => {
+        try {
+          await undoDeleteBill(accessToken!, spreadsheetId, bill);
+          setBills((prev) => {
+            const next = [...prev];
+            next.splice(originalIndex, 0, bill);
+            return next;
+          });
+        } catch {
+          showToast('Failed to undo delete.', 'error');
+        }
+      });
+    } catch {
+      // Rollback: reinsert at original position
+      setBills((prev) => {
+        const next = [...prev];
+        next.splice(originalIndex, 0, bill);
+        return next;
+      });
+      showToast('Failed to delete bill.', 'error');
+    }
   }
 
   function handleModalClose() {
@@ -410,6 +499,28 @@ export default function BillsPage() {
           onOpenExisting={handleDuplicateOpenExisting}
           onAddAnyway={handleDuplicateAddAnyway}
           onCancel={handleDuplicateCancel}
+        />
+      )}
+
+      {/* Mark Paid Modal */}
+      {markPaidTarget && (
+        <MarkPaidModal
+          bill={markPaidTarget}
+          isSaving={isSaving}
+          onSubmit={handleMarkPaidSubmit}
+          onClose={() => !isSaving && setMarkPaidTarget(null)}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete bill"
+          message="Delete this bill? You can undo within 10 seconds."
+          confirmLabel="Delete"
+          confirmVariant="destructive"
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>
