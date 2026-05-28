@@ -206,7 +206,7 @@ Add the remaining mutation functions.
 
 ## Group 4: ToastContext + Shared Components
 
-### T007 — Create `ToastContext.tsx` with showToast, showUndo, dismiss [P]
+### [X] T007 — Create `ToastContext.tsx` with showToast, showUndo, dismiss [P]
 
 **File**: `src/contexts/ToastContext.tsx` (NEW)
 
@@ -226,7 +226,7 @@ Add the remaining mutation functions.
 
 **Verify**: Import compiles. `npx tsc --noEmit`.
 
-### T008 — Create `ToastContainer.tsx` that renders toasts and undo snackbar [P]
+### [X] T008 — Create `ToastContainer.tsx` that renders toasts and undo snackbar [P]
 
 **File**: `src/components/shared/ToastContainer.tsx` (NEW)
 
@@ -247,7 +247,7 @@ Add the remaining mutation functions.
 
 **Verify**: Renders without errors when imported.
 
-### T009 — Create `ConfirmDialog.tsx` reusable modal [P]
+### [X] T009 — Create `ConfirmDialog.tsx` reusable modal [P]
 
 **File**: `src/components/shared/ConfirmDialog.tsx` (NEW)
 
@@ -272,7 +272,7 @@ Add the remaining mutation functions.
 
 **Verify**: Renders without errors when imported with mock props.
 
-### T010 — Create `StatusBadge.tsx` component [P]
+### [X] T010 — Create `StatusBadge.tsx` component [P]
 
 **File**: `src/components/shared/StatusBadge.tsx` (NEW)
 
@@ -292,7 +292,7 @@ Add the remaining mutation functions.
 
 ## Group 5: Settings Feature Components
 
-### T011 — Create `PropertyCard.tsx` list item component [P]
+### [X] T011 — Create `PropertyCard.tsx` list item component [P]
 
 **File**: `src/components/settings/PropertyCard.tsx` (NEW)
 
@@ -315,7 +315,7 @@ Add the remaining mutation functions.
 
 **Verify**: Renders with mock property data.
 
-### T012 — Create `PropertyFormModal.tsx` for add/edit property [P]
+### [X] T012 — Create `PropertyFormModal.tsx` for add/edit property [P]
 
 **File**: `src/components/settings/PropertyFormModal.tsx` (NEW)
 
@@ -341,7 +341,7 @@ Add the remaining mutation functions.
 
 **Verify**: Renders in add mode and edit mode with mock data.
 
-### T013 — Create `BillTypeCard.tsx` list item component [P]
+### [X] T013 — Create `BillTypeCard.tsx` list item component [P]
 
 **File**: `src/components/settings/BillTypeCard.tsx` (NEW)
 
@@ -364,7 +364,7 @@ Add the remaining mutation functions.
 
 **Verify**: Renders with mock BillTypeWithProperty data.
 
-### T014 — Create `BillTypeFormModal.tsx` for add/edit bill type [P]
+### [X] T014 — Create `BillTypeFormModal.tsx` for add/edit bill type [P]
 
 **File**: `src/components/settings/BillTypeFormModal.tsx` (NEW)
 
