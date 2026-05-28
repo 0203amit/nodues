@@ -19,7 +19,11 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:react-oauth.vercel.app)",
       "WebFetch(domain:reactjsexample.com)",
-      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/setup-tasks.ps1 -Json)"
+      "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/setup-tasks.ps1 -Json)",
+      "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"first-run-bootstrapping\" \"First-Run Bootstrapping — Google Sheet, Drive Folder, Calendar, and Seed Data\")",
+      "WebFetch(domain:issuetracker.google.com)",
+      "WebFetch(domain:groups.google.com)",
+      "WebFetch(domain:support.google.com)"
     ]
   }
 }
