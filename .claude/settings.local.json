@@ -25,7 +25,8 @@
       "WebFetch(domain:groups.google.com)",
       "WebFetch(domain:support.google.com)",
       "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(GIT_BRANCH_NAME=\"006-calendar-reminders\" bash:*)"
     ]
   }
 }
