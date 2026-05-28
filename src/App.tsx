@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./contexts/AuthContext";
 import Navbar from "./components/shared/Navbar";
 import LandingPage from "./pages/LandingPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -7,8 +8,7 @@ import TodosPage from "./pages/TodosPage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
-  // TODO: Replace with real auth state from Phase 1 Step 3
-  const isAuthenticated = true;
+  const { isAuthenticated } = useAuth();
 
   return (
     <div className="min-h-screen bg-white">
