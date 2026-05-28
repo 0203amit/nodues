@@ -20,7 +20,7 @@ const COL = Object.fromEntries(BILL_TYPE_HEADERS.map((h, i) => [h, i])) as Recor
 
 export function parseRow(row: RowWithIndex): BillType | null {
   const v = row.values;
-  if (!v || v.length < BILL_TYPE_HEADERS.length) return null;
+  if (!v || v.length === 0) return null;
   const id = v[COL.id];
   if (!id) return null;
 

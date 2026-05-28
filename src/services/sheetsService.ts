@@ -156,11 +156,18 @@ export async function readAllRows(
   spreadsheetId: string,
   tabName: string,
 ): Promise<RowWithIndex[]> {
-  const lastCol = getLastColumnLetter(tabName);
+  const def = HEADER_DEFINITIONS.find((d) => d.tabName === tabName);
+  if (!def) throw new Error(`No header definition found for tab: ${tabName}`);
+  const lastCol = columnLetter(def.headers.length);
+  const colCount = def.headers.length;
   const range = `'${tabName}'!A2:${lastCol}`;
   const result = await readValues(accessToken, spreadsheetId, range);
   if (!result?.values) return [];
-  return result.values.map((row, i) => ({ rowIndex: i + 2, values: row }));
+  return result.values.map((row, i) => ({
+    rowIndex: i + 2,
+    // Pad trailing empty cells that the Sheets API omits
+    values: row.length < colCount ? [...row, ...Array(colCount - row.length).fill('')] : row,
+  }));
 }
 
 /** Overwrite a full row at a given 1-based row index. */

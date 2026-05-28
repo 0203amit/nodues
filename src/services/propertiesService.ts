@@ -13,7 +13,7 @@ const COL = Object.fromEntries(PROPERTY_HEADERS.map((h, i) => [h, i])) as Record
 
 export function parseRow(row: RowWithIndex): Property | null {
   const v = row.values;
-  if (!v || v.length < PROPERTY_HEADERS.length) return null;
+  if (!v || v.length === 0) return null;
   const id = v[COL.id];
   if (!id) return null;
 
