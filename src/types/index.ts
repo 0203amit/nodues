@@ -324,3 +324,41 @@ export interface ActivityLogEntry {
   entityId: string;
   summary: string;
 }
+
+// --- Dashboard Types ---
+
+export interface PropertyMoneySummary {
+  propertyId: string;
+  propertyName: string;
+  outstanding: number;
+  paid: number;
+}
+
+export interface MoneyThisMonth {
+  outstanding: number;
+  paid: number;
+  byProperty: PropertyMoneySummary[];
+}
+
+export type AttentionItem =
+  | {
+      kind: 'bill';
+      id: string;
+      billTypeName: string;
+      propertyName: string;
+      propertyId: string;
+      month: string;
+      dueDate: string;
+      displayStatus: BillDisplayStatus;
+      amount: number | null;
+    }
+  | {
+      kind: 'todo';
+      id: string;
+      title: string;
+      categoryId: string;
+      categoryName: string;
+      categoryColor: string;
+      dueDate: string;
+      displayStatus: TodoDisplayStatus;
+    };

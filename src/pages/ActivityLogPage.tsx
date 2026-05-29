@@ -1,50 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Loader2, History, Receipt, ListTodo, Home, FileText, Tags } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBootstrap } from '../contexts/BootstrapContext';
 import { useToast } from '../contexts/ToastContext';
 import { fetchActivityLog } from '../services/activityLogService';
-import { formatRelativeTime } from '../utils/relativeTime';
-import type { ActionType, ActivityEntityType, ActivityLogEntry } from '../types';
+import type { ActivityLogEntry } from '../types';
 import { APP_TITLE_SUFFIX } from '../config/branding';
-
-const ACTION_LABELS: Record<ActionType, string> = {
-  bill_added: 'Bill added',
-  bill_updated: 'Bill updated',
-  bill_paid: 'Bill paid',
-  bill_postponed: 'Bill postponed',
-  bill_deleted: 'Bill deleted',
-  bill_restored: 'Bill restored',
-  todo_added: 'To-do added',
-  todo_updated: 'To-do updated',
-  todo_done: 'To-do done',
-  todo_recurrence_created: 'Recurrence created',
-  todo_postponed: 'To-do postponed',
-  todo_deleted: 'To-do deleted',
-  todo_restored: 'To-do restored',
-  property_added: 'Property added',
-  property_updated: 'Property updated',
-  property_deleted: 'Property deleted',
-  property_restored: 'Property restored',
-  billtype_added: 'Bill type added',
-  billtype_updated: 'Bill type updated',
-  billtype_deleted: 'Bill type deleted',
-  billtype_restored: 'Bill type restored',
-  category_added: 'Category added',
-  category_updated: 'Category updated',
-  category_deleted: 'Category deleted',
-  category_restored: 'Category restored',
-};
-
-const ENTITY_ICONS: Record<ActivityEntityType, LucideIcon> = {
-  bill: Receipt,
-  todo: ListTodo,
-  property: Home,
-  billtype: FileText,
-  category: Tags,
-};
+import ActivityRow from '../components/shared/ActivityRow';
 
 export default function ActivityLogPage() {
   const { accessToken } = useAuth();
@@ -114,30 +77,9 @@ export default function ActivityLogPage() {
       {/* Content list */}
       {!isLoading && entries.length > 0 && (
         <div className="flex flex-col gap-3">
-          {entries.map((entry) => {
-            const Icon = ENTITY_ICONS[entry.entityType] ?? History;
-            return (
-              <div
-                key={entry.id}
-                className="bg-white border border-slate-200 rounded-lg p-4"
-              >
-                <div className="flex items-start gap-3">
-                  <Icon className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-900">
-                        {ACTION_LABELS[entry.action] ?? entry.action}
-                      </span>
-                      <span className="text-xs text-slate-400 ml-auto flex-shrink-0">
-                        {formatRelativeTime(entry.timestamp)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600">{entry.summary}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {entries.map((entry) => (
+            <ActivityRow key={entry.id} entry={entry} />
+          ))}
         </div>
       )}
     </div>
