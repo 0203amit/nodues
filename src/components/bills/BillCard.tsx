@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Paperclip, Pencil, Receipt, Trash2 } from 'lucide-react';
+import { Bell, Paperclip, Pencil, Receipt, Trash2 } from 'lucide-react';
 import type { BillWithDisplay } from '../../types';
 import { formatMonth, formatCurrency, parseFileIds } from '../../services/billsService';
 import BillStatusBadge from '../shared/BillStatusBadge';
@@ -107,6 +107,15 @@ const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
             <span className="text-xs tabular-nums">{attachmentCount}</span>
           )}
         </button>
+
+        {bill.calendarEventIds && bill.calendarEventIds.trim() !== '' && (
+          <span
+            className="inline-flex items-center justify-center min-h-11 min-w-11 px-2 py-1"
+            title="Calendar reminders set"
+          >
+            <Bell className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          </span>
+        )}
 
         <button
           type="button"

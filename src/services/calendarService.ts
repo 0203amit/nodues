@@ -1,4 +1,4 @@
-import { googleApiFetch, withRetry } from './googleApi';
+import { googleApiFetch, GoogleApiRequestError, withRetry } from './googleApi';
 
 // --- Types ---
 
@@ -11,6 +11,13 @@ export interface GoogleCalendar {
 interface CalendarListResponse {
   items?: Array<GoogleCalendar & { deleted?: boolean }>;
   nextPageToken?: string;
+}
+
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  start: { date: string };
+  end: { date: string };
 }
 
 // --- Constants ---
@@ -66,4 +73,65 @@ export async function createCalendar(
       body: { summary, timeZone },
     }),
   );
+}
+
+/**
+ * Create a single all-day event on the specified calendar.
+ * end.date is exclusive — set to the day after start.date for a single-day event.
+ * Returns the created event's ID.
+ */
+export async function createAllDayEvent(
+  accessToken: string,
+  calendarId: string,
+  dateYYYYMMDD: string,
+  title: string,
+  description: string,
+): Promise<string> {
+  // Compute next day inline (no cross-service import)
+  const [y, m, d] = dateYYYYMMDD.split('-').map(Number);
+  const nd = new Date(y, m - 1, d + 1);
+  const nextDayStr = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}-${String(nd.getDate()).padStart(2, '0')}`;
+
+  const url = `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`;
+  const event = await withRetry(() =>
+    googleApiFetch<GoogleCalendarEvent>(accessToken, url, {
+      method: 'POST',
+      body: {
+        summary: title,
+        description,
+        start: { date: dateYYYYMMDD },
+        end: { date: nextDayStr },
+        reminders: {
+          useDefault: false,
+          overrides: [{ method: 'popup', minutes: 0 }],
+        },
+      },
+    }),
+  );
+  return event.id;
+}
+
+/**
+ * Delete a calendar event by ID.
+ * 404/410 → return silently (event already gone). Other errors are re-thrown.
+ */
+export async function deleteEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+): Promise<void> {
+  const url = `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+  try {
+    await withRetry(() =>
+      googleApiFetch(accessToken, url, { method: 'DELETE' }),
+    );
+  } catch (error) {
+    if (
+      error instanceof GoogleApiRequestError &&
+      (error.status === 404 || error.status === 410)
+    ) {
+      return; // already gone
+    }
+    throw error;
+  }
 }

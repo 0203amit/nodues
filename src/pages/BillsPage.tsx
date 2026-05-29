@@ -17,6 +17,10 @@ import {
   sortBills,
   formatMonth,
   computeDisplayStatus,
+  parseEventIds,
+  createReminders,
+  cleanupReminders,
+  setCalendarEventIds,
 } from '../services/billsService';
 import type {
   Bill,
@@ -39,6 +43,7 @@ export default function BillsPage() {
   const { setupResult } = useBootstrap();
   const spreadsheetId = setupResult!.spreadsheetId;
   const folderId = setupResult!.folderId;
+  const calendarId = setupResult!.calendarId;
   const { showToast, showUndo } = useToast();
 
   // --- State ---
@@ -138,9 +143,10 @@ export default function BillsPage() {
   }, [billTypes]);
 
   // --- Helper: refetch bills ---
-  async function refetchBills() {
+  async function refetchBills(): Promise<BillWithDisplay[]> {
     const billData = await fetchBills(accessToken!, spreadsheetId, billTypeMap);
     setBills(billData);
+    return billData;
   }
 
   // --- Derived state ---
@@ -215,11 +221,42 @@ export default function BillsPage() {
   async function saveNewBill(data: BillFormData, propertyId: string) {
     setIsSaving(true);
     try {
-      await addBill(accessToken!, spreadsheetId, data, propertyId);
-      await refetchBills();
+      const newBill = await addBill(accessToken!, spreadsheetId, data, propertyId);
+      const freshBills = await refetchBills();
       setFormModal(null);
       setDuplicateWarning(null);
-      showToast('Bill added.', 'success');
+
+      // Calendar side-effect (best-effort)
+      const btInfo = billTypeMap.get(data.billTypeId);
+      const billType = billTypes.find(bt => bt.id === data.billTypeId);
+      if (newBill.dueDate && billType && billType.reminderOffsetsDays.length > 0) {
+        try {
+          const result = await createReminders(
+            accessToken!, calendarId, newBill.dueDate,
+            billType.reminderOffsetsDays, btInfo?.name ?? '',
+            btInfo?.propertyName ?? '', newBill.amount, data.month,
+          );
+          if (result.eventIds.length > 0) {
+            const fresh = freshBills.find(b => b.id === newBill.id);
+            if (fresh) {
+              const updated = await setCalendarEventIds(
+                accessToken!, spreadsheetId, fresh, result.eventIds,
+              );
+              setBills(prev => prev.map(b => b.id === updated.id
+                ? { ...b, calendarEventIds: updated.calendarEventIds } : b));
+            }
+          }
+          if (!result.allSucceeded) {
+            showToast("Bill saved, but some reminders couldn't be set.", 'error');
+          } else {
+            showToast('Bill added.', 'success');
+          }
+        } catch {
+          showToast("Bill saved, but reminders couldn't be set.", 'error');
+        }
+      } else {
+        showToast('Bill added.', 'success');
+      }
     } catch {
       showToast('Failed to add bill.', 'error');
     } finally {
@@ -234,11 +271,54 @@ export default function BillsPage() {
   ) {
     setIsSaving(true);
     try {
-      await updateBill(accessToken!, spreadsheetId, bill, data, propertyId);
+      const dueDateChanged = bill.dueDate !== data.dueDate;
+      const updatedBill = await updateBill(accessToken!, spreadsheetId, bill, data, propertyId);
+
+      // Calendar side-effect (only when dueDate changed)
+      let calendarFailed = false;
+      if (dueDateChanged) {
+        try {
+          const oldIds = parseEventIds(bill.calendarEventIds);
+          if (oldIds.length > 0) {
+            await cleanupReminders(accessToken!, calendarId, oldIds);
+          }
+          if (data.dueDate !== '') {
+            const billType = billTypes.find(bt => bt.id === bill.billTypeId);
+            const parsedAmount = data.amount.trim() === '' ? null : Number(data.amount);
+            const result = await createReminders(
+              accessToken!, calendarId, data.dueDate,
+              billType?.reminderOffsetsDays ?? [], billType?.name ?? '',
+              billType?.propertyName ?? '', parsedAmount, data.month,
+            );
+            const updated = await setCalendarEventIds(
+              accessToken!, spreadsheetId, updatedBill, result.eventIds,
+            );
+            setBills(prev => prev.map(b => b.id === updated.id
+              ? { ...b, calendarEventIds: updated.calendarEventIds } : b));
+            if (!result.allSucceeded) {
+              showToast("Bill updated, but some reminders couldn't be set.", 'error');
+              calendarFailed = true;
+            }
+          } else {
+            // Date removed — clear event IDs
+            const updated = await setCalendarEventIds(
+              accessToken!, spreadsheetId, updatedBill, [],
+            );
+            setBills(prev => prev.map(b => b.id === updated.id
+              ? { ...b, calendarEventIds: updated.calendarEventIds } : b));
+          }
+        } catch {
+          showToast("Bill updated, but reminders couldn't be updated.", 'error');
+          calendarFailed = true;
+        }
+      }
+
       await refetchBills();
       setFormModal(null);
       setDuplicateWarning(null);
-      showToast('Bill updated.', 'success');
+      if (!calendarFailed) {
+        showToast('Bill updated.', 'success');
+      }
     } catch {
       showToast('Failed to update bill.', 'error');
     } finally {
@@ -294,10 +374,28 @@ export default function BillsPage() {
     if (!markPaidTarget) return;
     setIsSaving(true);
     try {
-      await markBillPaid(accessToken!, spreadsheetId, markPaidTarget, data);
+      const paidBill = await markBillPaid(accessToken!, spreadsheetId, markPaidTarget, data);
+
+      // Calendar cleanup (best-effort)
+      let calendarFailed = false;
+      if (markPaidTarget.calendarEventIds && markPaidTarget.calendarEventIds.trim() !== '') {
+        try {
+          await cleanupReminders(
+            accessToken!, calendarId,
+            parseEventIds(markPaidTarget.calendarEventIds),
+          );
+          await setCalendarEventIds(accessToken!, spreadsheetId, paidBill, []);
+        } catch {
+          showToast("Bill marked paid, but calendar reminders couldn't be removed.", 'error');
+          calendarFailed = true;
+        }
+      }
+
       await refetchBills();
       setMarkPaidTarget(null);
-      showToast('Bill marked as paid.', 'success');
+      if (!calendarFailed) {
+        showToast('Bill marked as paid.', 'success');
+      }
     } catch {
       showToast('Failed to mark bill as paid.', 'error');
     } finally {
@@ -327,12 +425,56 @@ export default function BillsPage() {
 
     try {
       await softDeleteBill(accessToken!, spreadsheetId, bill);
+
+      // Calendar cleanup (best-effort) — do NOT call setCalendarEventIds
+      // (softDeleteBill uses updateCell on deleted_at; a full-row write would un-delete)
+      if (bill.calendarEventIds && bill.calendarEventIds.trim() !== '') {
+        try {
+          await cleanupReminders(
+            accessToken!, calendarId,
+            parseEventIds(bill.calendarEventIds),
+          );
+        } catch {
+          showToast("Bill deleted, but calendar reminders couldn't be removed.", 'error');
+        }
+      }
+
       showUndo('Bill deleted.', async () => {
         try {
           await undoDeleteBill(accessToken!, spreadsheetId, bill);
+
+          // Recreate calendar reminders (best-effort)
+          let restoredBill: Bill = bill;
+          const billType = billTypes.find(bt => bt.id === bill.billTypeId);
+          if (bill.dueDate && billType && billType.reminderOffsetsDays.length > 0) {
+            try {
+              const result = await createReminders(
+                accessToken!, calendarId, bill.dueDate,
+                billType.reminderOffsetsDays, bill.billTypeName,
+                bill.propertyName, bill.amount, bill.month,
+              );
+              if (result.eventIds.length > 0) {
+                restoredBill = await setCalendarEventIds(
+                  accessToken!, spreadsheetId, bill, result.eventIds,
+                );
+              }
+              if (!result.allSucceeded) {
+                showToast("Bill restored, but some reminders couldn't be recreated.", 'error');
+              }
+            } catch {
+              showToast("Bill restored, but reminders couldn't be recreated.", 'error');
+            }
+          }
+
           setBills((prev) => {
             const next = [...prev];
-            next.splice(originalIndex, 0, bill);
+            next.splice(originalIndex, 0, {
+              ...restoredBill,
+              billTypeName: bill.billTypeName,
+              propertyName: bill.propertyName,
+              propertyId: bill.propertyId,
+              displayStatus: bill.displayStatus,
+            });
             return next;
           });
         } catch {
