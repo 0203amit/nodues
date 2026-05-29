@@ -17,6 +17,8 @@ import type { Property, BillTypeWithProperty, BillTypeFormData } from '../types'
 import BillTypeCard from '../components/settings/BillTypeCard';
 import BillTypeFormModal from '../components/settings/BillTypeFormModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
+import { v4 as uuidv4 } from 'uuid';
+import { appendActivityLogSafe } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
 export default function BillTypesPage() {
@@ -80,7 +82,7 @@ export default function BillTypesPage() {
     setIsSaving(true);
     try {
       if (modalMode === 'add') {
-        await addBillType(accessToken!, spreadsheetId, data);
+        const newBt = await addBillType(accessToken!, spreadsheetId, data);
         // Refetch to get valid _rowIndex and resolved property names
         const [refreshedBt, refreshedProps] = await Promise.all([
           fetchBillTypes(accessToken!, spreadsheetId),
@@ -88,6 +90,15 @@ export default function BillTypesPage() {
         ]);
         setBillTypes(refreshedBt);
         setProperties(refreshedProps);
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'billtype_added',
+          entityType: 'billtype',
+          entityId: newBt.id,
+          summary: `${data.name}`,
+        });
         showToast('Bill type added.', 'success');
       } else if (modalMode === 'edit' && editTarget) {
         const updated = await updateBillType(accessToken!, spreadsheetId, editTarget, data);
@@ -98,6 +109,15 @@ export default function BillTypesPage() {
               : bt,
           ),
         );
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'billtype_updated',
+          entityType: 'billtype',
+          entityId: editTarget.id,
+          summary: `${data.name}`,
+        });
         showToast('Bill type updated.', 'success');
       }
       setModalMode(null);
@@ -157,9 +177,27 @@ export default function BillTypesPage() {
 
     try {
       await softDeleteBillType(accessToken!, spreadsheetId, billType);
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'billtype_deleted',
+        entityType: 'billtype',
+        entityId: billType.id,
+        summary: `${billType.name}`,
+      });
       showUndo(`"${billType.name}" deleted.`, async () => {
         try {
           await undoDeleteBillType(accessToken!, spreadsheetId, billType);
+          await appendActivityLogSafe(accessToken!, spreadsheetId, {
+            id: uuidv4(),
+            timestamp: new Date().toISOString(),
+            userEmail: 'user',
+            action: 'billtype_restored',
+            entityType: 'billtype',
+            entityId: billType.id,
+            summary: `${billType.name}`,
+          });
           setBillTypes((prev) => {
             const next = [...prev];
             next.splice(originalIndex, 0, billType);

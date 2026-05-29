@@ -43,6 +43,8 @@ import PostponeModal from '../components/shared/PostponeModal';
 import DuplicateWarningModal from '../components/bills/DuplicateWarningModal';
 import AttachmentsModal from '../components/bills/AttachmentsModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
+import { v4 as uuidv4 } from 'uuid';
+import { appendActivityLogSafe, formatShortDate } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
 export default function BillsPage() {
@@ -266,6 +268,16 @@ export default function BillsPage() {
       } else {
         showToast('Bill added.', 'success');
       }
+
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'bill_added',
+        entityType: 'bill',
+        entityId: newBill.id,
+        summary: `${btInfo?.name ?? ''} — ${btInfo?.propertyName ?? ''} · ${formatMonth(data.month)}`,
+      });
     } catch {
       showToast('Failed to add bill.', 'error');
     } finally {
@@ -326,6 +338,17 @@ export default function BillsPage() {
       await refetchBills();
       setFormModal(null);
       setDuplicateWarning(null);
+
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'bill_updated',
+        entityType: 'bill',
+        entityId: bill.id,
+        summary: `${bill.billTypeName} — ${bill.propertyName} · ${formatMonth(data.month)}`,
+      });
+
       if (!calendarFailed) {
         showToast('Bill updated.', 'success');
       }
@@ -403,6 +426,17 @@ export default function BillsPage() {
 
       await refetchBills();
       setMarkPaidTarget(null);
+
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'bill_paid',
+        entityType: 'bill',
+        entityId: markPaidTarget.id,
+        summary: `${markPaidTarget.billTypeName} — ${markPaidTarget.propertyName} · ${formatMonth(markPaidTarget.month)}${markPaidTarget.amount !== null ? ` · ${formatCurrency(markPaidTarget.amount)}` : ''}`,
+      });
+
       if (!calendarFailed) {
         showToast('Bill marked as paid.', 'success');
       }
@@ -490,6 +524,16 @@ export default function BillsPage() {
         } : b));
       }
 
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'bill_postponed',
+        entityType: 'bill',
+        entityId: postponeTarget.id,
+        summary: `${postponeTarget.billTypeName} — ${postponeTarget.propertyName} · ${formatShortDate(postponeTarget.dueDate)} → ${formatDueDate(data.newDueDate)}`,
+      });
+
       // Close modal + success toast (only if no calendar issue toast shown)
       setPostponeTarget(null);
       if (!calendarFailed) {
@@ -538,6 +582,16 @@ export default function BillsPage() {
         }
       }
 
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'bill_deleted',
+        entityType: 'bill',
+        entityId: bill.id,
+        summary: `${bill.billTypeName} — ${bill.propertyName} · ${formatMonth(bill.month)}`,
+      });
+
       showUndo('Bill deleted.', async () => {
         try {
           await undoDeleteBill(accessToken!, spreadsheetId, bill);
@@ -565,6 +619,16 @@ export default function BillsPage() {
               showToast("Bill restored, but reminders couldn't be recreated.", 'error');
             }
           }
+
+          await appendActivityLogSafe(accessToken!, spreadsheetId, {
+            id: uuidv4(),
+            timestamp: new Date().toISOString(),
+            userEmail: 'user',
+            action: 'bill_restored',
+            entityType: 'bill',
+            entityId: bill.id,
+            summary: `${bill.billTypeName} — ${bill.propertyName} · ${formatMonth(bill.month)}`,
+          });
 
           setBills((prev) => {
             const next = [...prev];

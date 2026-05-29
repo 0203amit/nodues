@@ -27,7 +27,8 @@
       "Bash(powershell -ExecutionPolicy Bypass -File .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
       "Bash(ls:*)",
       "Bash(GIT_BRANCH_NAME=\"006-calendar-reminders\" bash:*)",
-      "Bash(GIT_BRANCH_NAME=\"008-todos-task-tracking\" powershell -ExecutionPolicy Bypass -File \".specify/extensions/git/scripts/powershell/create-new-feature.ps1\" -Json -ShortName \"todos-task-tracking\" \"To-Dos task tracking with categories recurrence due dates reminders\")"
+      "Bash(GIT_BRANCH_NAME=\"008-todos-task-tracking\" powershell -ExecutionPolicy Bypass -File \".specify/extensions/git/scripts/powershell/create-new-feature.ps1\" -Json -ShortName \"todos-task-tracking\" \"To-Dos task tracking with categories recurrence due dates reminders\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)"
     ]
   }
 }

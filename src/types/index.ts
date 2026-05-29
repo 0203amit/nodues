@@ -300,3 +300,27 @@ export const CATEGORY_COLOR_PALETTE = [
   { name: 'Purple', hex: '#A855F7' },
   { name: 'Pink', hex: '#EC4899' },
 ] as const;
+
+// --- Activity Log Types ---
+
+export type ActionType =
+  | 'bill_added' | 'bill_updated' | 'bill_paid' | 'bill_postponed'
+  | 'bill_deleted' | 'bill_restored'
+  | 'todo_added' | 'todo_updated' | 'todo_done' | 'todo_recurrence_created'
+  | 'todo_postponed' | 'todo_deleted' | 'todo_restored'
+  | 'property_added' | 'property_updated' | 'property_deleted' | 'property_restored'
+  | 'billtype_added' | 'billtype_updated' | 'billtype_deleted' | 'billtype_restored'
+  | 'category_added' | 'category_updated' | 'category_deleted' | 'category_restored';
+
+export type ActivityEntityType = 'bill' | 'todo' | 'property' | 'billtype' | 'category';
+
+export interface ActivityLogEntry {
+  _rowIndex: number;
+  id: string;
+  timestamp: string;
+  userEmail: string;
+  action: ActionType;
+  entityType: ActivityEntityType;
+  entityId: string;
+  summary: string;
+}

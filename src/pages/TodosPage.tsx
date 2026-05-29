@@ -31,6 +31,8 @@ import TodoFormModal from '../components/todos/TodoFormModal';
 import MarkDoneModal from '../components/todos/MarkDoneModal';
 import PostponeModal from '../components/shared/PostponeModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
+import { v4 as uuidv4 } from 'uuid';
+import { appendActivityLogSafe, formatShortDate } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 import type {
   TodoWithDisplay,
@@ -232,6 +234,16 @@ export default function TodosPage() {
         showToast('To-do added.', 'success');
       }
 
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'todo_added',
+        entityType: 'todo',
+        entityId: newTodo.id,
+        summary: `${newTodo.title}`,
+      });
+
       setFormModal(null);
     } catch {
       showToast('Failed to add to-do.', 'error');
@@ -295,6 +307,17 @@ export default function TodosPage() {
       }
 
       await refetchTodos();
+
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'todo_updated',
+        entityType: 'todo',
+        entityId: todo.id,
+        summary: `${data.title}`,
+      });
+
       setFormModal(null);
       if (!calendarFailed) {
         showToast('To-do updated.', 'success');
@@ -338,6 +361,16 @@ export default function TodosPage() {
         }
       } catch { /* swallow */ }
 
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'todo_done',
+        entityType: 'todo',
+        entityId: markDoneTarget.id,
+        summary: `${markDoneTarget.title}`,
+      });
+
       // STEP 4: best-effort — calendar create on next instance (NEEDS REFETCH for _rowIndex)
       let calendarPartialFailed = false;
       if (nextTodo && nextTodo.dueDate) {
@@ -364,6 +397,18 @@ export default function TodosPage() {
             showToast("To-do marked as done, but calendar reminders couldn't be updated.", 'error');
           }
         }
+      }
+
+      if (nextTodo) {
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'todo_recurrence_created',
+          entityType: 'todo',
+          entityId: nextTodo.id,
+          summary: nextTodo.dueDate ? `${nextTodo.title} · next ${formatDueDate(nextTodo.dueDate)}` : nextTodo.title,
+        });
       }
 
       // STEP 5: refetch all
@@ -462,6 +507,16 @@ export default function TodosPage() {
         } : t));
       }
 
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'todo_postponed',
+        entityType: 'todo',
+        entityId: postponeTarget.id,
+        summary: `${postponeTarget.title} · ${formatShortDate(postponeTarget.dueDate)} → ${formatDueDate(data.newDueDate)}`,
+      });
+
       // Close modal + success toast (only if no calendar issue toast shown)
       setPostponeTarget(null);
       if (!calendarFailed) {
@@ -503,6 +558,16 @@ export default function TodosPage() {
         } catch { /* swallow */ }
       }
 
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'todo_deleted',
+        entityType: 'todo',
+        entityId: todo.id,
+        summary: `${todo.title}`,
+      });
+
       showUndo('To-do deleted.', async () => {
         try {
           await undoDeleteTodo(accessToken!, spreadsheetId, todo);
@@ -530,6 +595,16 @@ export default function TodosPage() {
               }
             } catch { /* swallow */ }
           }
+
+          await appendActivityLogSafe(accessToken!, spreadsheetId, {
+            id: uuidv4(),
+            timestamp: new Date().toISOString(),
+            userEmail: 'user',
+            action: 'todo_restored',
+            entityType: 'todo',
+            entityId: todo.id,
+            summary: `${todo.title}`,
+          });
 
           // Reinsert at originalIndex (re-enriched)
           setTodos((prev) => {

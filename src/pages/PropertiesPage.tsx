@@ -16,6 +16,8 @@ import type { Property, PropertyFormData } from '../types';
 import PropertyCard from '../components/settings/PropertyCard';
 import PropertyFormModal from '../components/settings/PropertyFormModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
+import { v4 as uuidv4 } from 'uuid';
+import { appendActivityLogSafe } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
 export default function PropertiesPage() {
@@ -71,16 +73,34 @@ export default function PropertiesPage() {
     setIsSaving(true);
     try {
       if (modalMode === 'add') {
-        await addProperty(accessToken!, spreadsheetId, data);
+        const newProp = await addProperty(accessToken!, spreadsheetId, data);
         // Refetch to get valid _rowIndex
         const refreshed = await fetchProperties(accessToken!, spreadsheetId);
         setProperties(refreshed);
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'property_added',
+          entityType: 'property',
+          entityId: newProp.id,
+          summary: `${data.name}`,
+        });
         showToast('Property added.', 'success');
       } else if (modalMode === 'edit' && editTarget) {
         const updated = await updateProperty(accessToken!, spreadsheetId, editTarget, data);
         setProperties((prev) =>
           prev.map((p) => (p.id === updated.id ? updated : p)),
         );
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'property_updated',
+          entityType: 'property',
+          entityId: editTarget.id,
+          summary: `${data.name}`,
+        });
         showToast('Property updated.', 'success');
       }
       setModalMode(null);
@@ -136,9 +156,27 @@ export default function PropertiesPage() {
 
     try {
       await softDeleteProperty(accessToken!, spreadsheetId, property);
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'property_deleted',
+        entityType: 'property',
+        entityId: property.id,
+        summary: `${property.name}`,
+      });
       showUndo(`"${property.name}" deleted.`, async () => {
         try {
           await undoDeleteProperty(accessToken!, spreadsheetId, property);
+          await appendActivityLogSafe(accessToken!, spreadsheetId, {
+            id: uuidv4(),
+            timestamp: new Date().toISOString(),
+            userEmail: 'user',
+            action: 'property_restored',
+            entityType: 'property',
+            entityId: property.id,
+            summary: `${property.name}`,
+          });
           setProperties((prev) => {
             const next = [...prev];
             next.splice(originalIndex, 0, property);

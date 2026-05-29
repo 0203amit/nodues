@@ -16,6 +16,8 @@ import type { TodoCategory, TodoCategoryFormData } from '../types';
 import CategoryCard from '../components/settings/CategoryCard';
 import CategoryFormModal from '../components/settings/CategoryFormModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
+import { v4 as uuidv4 } from 'uuid';
+import { appendActivityLogSafe } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
 export default function CategoriesPage() {
@@ -71,16 +73,34 @@ export default function CategoriesPage() {
     setIsSaving(true);
     try {
       if (modalMode === 'add') {
-        await addCategory(accessToken!, spreadsheetId, data);
+        const newCat = await addCategory(accessToken!, spreadsheetId, data);
         // Refetch to get valid _rowIndex
         const refreshed = await fetchCategories(accessToken!, spreadsheetId);
         setCategories(refreshed);
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'category_added',
+          entityType: 'category',
+          entityId: newCat.id,
+          summary: `${data.name}`,
+        });
         showToast('Category added.', 'success');
       } else if (modalMode === 'edit' && editTarget) {
         const updated = await updateCategory(accessToken!, spreadsheetId, editTarget, data);
         setCategories((prev) =>
           prev.map((c) => (c.id === updated.id ? updated : c)),
         );
+        await appendActivityLogSafe(accessToken!, spreadsheetId, {
+          id: uuidv4(),
+          timestamp: new Date().toISOString(),
+          userEmail: 'user',
+          action: 'category_updated',
+          entityType: 'category',
+          entityId: editTarget.id,
+          summary: `${data.name}`,
+        });
         showToast('Category updated.', 'success');
       }
       setModalMode(null);
@@ -131,9 +151,27 @@ export default function CategoriesPage() {
 
     try {
       await softDeleteCategory(accessToken!, spreadsheetId, category);
+      await appendActivityLogSafe(accessToken!, spreadsheetId, {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        userEmail: 'user',
+        action: 'category_deleted',
+        entityType: 'category',
+        entityId: category.id,
+        summary: `${category.name}`,
+      });
       showUndo(`"${category.name}" deleted.`, async () => {
         try {
           await undoDeleteCategory(accessToken!, spreadsheetId, category);
+          await appendActivityLogSafe(accessToken!, spreadsheetId, {
+            id: uuidv4(),
+            timestamp: new Date().toISOString(),
+            userEmail: 'user',
+            action: 'category_restored',
+            entityType: 'category',
+            entityId: category.id,
+            summary: `${category.name}`,
+          });
           setCategories((prev) => {
             const next = [...prev];
             next.splice(originalIndex, 0, category);
