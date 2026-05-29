@@ -144,6 +144,27 @@ export interface MarkPaidFormData {
   transactionRef: string;
 }
 
+// --- Postpone ---
+
+/** A row in the PostponeLog sheet. */
+export interface PostponeLogEntry {
+  _rowIndex: number;
+  id: string;
+  itemType: string;
+  itemId: string;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  postponedBy: string;
+  postponedAt: string;
+}
+
+/** Fields collected from the PostponeModal form. */
+export interface PostponeFormData {
+  newDueDate: string;
+  reason: string;
+}
+
 // --- File Attachment Types ---
 
 /** Metadata for a file stored in Google Drive. Retrieved via Drive API v3 files.get. */

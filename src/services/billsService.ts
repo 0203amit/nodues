@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { HEADER_DEFINITIONS } from '../config/schema';
 import { readAllRows, updateRow, updateCell, appendRows } from './sheetsService';
 import { createAllDayEvent, deleteEvent } from './calendarService';
+import { appendPostponeLog } from './postponeLogService';
 import type {
   Bill,
   BillDisplayStatus,
@@ -504,4 +505,47 @@ export async function cleanupReminders(
       // best-effort — swallow all errors
     }
   }
+}
+
+// --- Postpone ---
+
+/** Postpone a bill to a new due date and log the change. Does NOT touch calendar. */
+export async function postponeBill(
+  accessToken: string,
+  spreadsheetId: string,
+  bill: Bill,
+  newDueDate: string,
+  reason: string,
+): Promise<Bill> {
+  // Step 1: Capture original due date on first postpone
+  const originalDueDate = bill.originalDueDate === '' ? bill.dueDate : bill.originalDueDate;
+
+  // Step 2: Build updated bill (status NOT changed)
+  const updatedBill: Bill = {
+    ...bill,
+    dueDate: newDueDate,
+    originalDueDate,
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Step 3: Write full row to sheet
+  await updateRow(accessToken, spreadsheetId, TAB_NAME, bill._rowIndex, serializeRow(updatedBill));
+
+  // Step 4: Build PostponeLog entry
+  const logEntry = {
+    id: uuidv4(),
+    itemType: 'bill',
+    itemId: bill.id,
+    fromDate: bill.dueDate,
+    toDate: newDueDate,
+    reason: reason.trim(),
+    postponedBy: 'user',
+    postponedAt: new Date().toISOString(),
+  };
+
+  // Step 5: Append log (if this throws after step 3, rethrow — accepted trade-off per FR-011)
+  await appendPostponeLog(accessToken, spreadsheetId, logEntry);
+
+  // Step 6: Return updated bill
+  return updatedBill;
 }
