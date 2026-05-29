@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { HEADER_DEFINITIONS } from '../config/schema';
 import { readAllRows, updateRow, updateCell, appendRows } from './sheetsService';
-import { createAllDayEvent, deleteEvent } from './calendarService';
 import { appendPostponeLog } from './postponeLogService';
+import { serializeEventIds } from './calendarReminders';
 import type {
   Bill,
   BillDisplayStatus,
@@ -12,6 +12,9 @@ import type {
   MarkPaidFormData,
   RowWithIndex,
 } from '../types';
+
+// Re-export calendar helpers so existing external imports still resolve (safety net)
+export { parseEventIds, cleanupReminders, formatDueDate } from './calendarReminders';
 
 // --- Column index map derived from HEADER_DEFINITIONS ---
 
@@ -116,34 +119,6 @@ export function parseFileIds(csv: string): string[] {
 /** Join an array of file IDs into a comma-separated string. Filters out empty values. */
 export function serializeFileIds(ids: string[]): string {
   return ids.filter(Boolean).join(',');
-}
-
-// --- Calendar Helpers ---
-
-/** Parse a comma-separated event ID string into an array. Alias for parseFileIds. */
-export const parseEventIds = parseFileIds;
-
-/** Join an array of event IDs into a comma-separated string. Alias for serializeFileIds. */
-export const serializeEventIds = serializeFileIds;
-
-/** Compute a reminder date by subtracting offsetDays from a due date. Safe month/year rollover. */
-export function computeReminderDate(dueDateStr: string, offsetDays: number): string {
-  const [year, month, day] = dueDateStr.split('-').map(Number);
-  const d = new Date(year, month - 1, day - offsetDays);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** Compute the next day for a given YYYY-MM-DD date string. */
-export function nextDay(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const d = new Date(year, month - 1, day + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** Format "2026-06-05" as "5 Jun 2026" (unpadded day, abbreviated month). */
-export function formatDueDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return `${day} ${MONTHS[month - 1]} ${year}`;
 }
 
 // --- Parse / Serialize ---
@@ -444,67 +419,6 @@ export async function setCalendarEventIds(
   };
   await updateRow(accessToken, spreadsheetId, TAB_NAME, bill._rowIndex, serializeRow(updatedBill));
   return updatedBill;
-}
-
-// --- Calendar Orchestration ---
-
-export interface ReminderResult {
-  eventIds: string[];
-  allSucceeded: boolean;
-}
-
-/**
- * Create reminder events for a bill on the NoDues Reminders calendar.
- * Sequential loop over offsets; partial failures are captured (allSucceeded=false).
- */
-export async function createReminders(
-  accessToken: string,
-  calendarId: string,
-  dueDate: string,
-  reminderOffsetsDays: number[],
-  billTypeName: string,
-  propertyName: string,
-  amount: number | null,
-  month: string,
-): Promise<ReminderResult> {
-  if (reminderOffsetsDays.length === 0) {
-    return { eventIds: [], allSucceeded: true };
-  }
-
-  const title = `${billTypeName} \u2014 ${propertyName} due ${formatDueDate(dueDate)}`;
-  const description =
-    `Month: ${formatMonth(month)}` +
-    (amount !== null ? `\nAmount: ${formatCurrency(amount)}` : '');
-
-  const eventIds: string[] = [];
-  let allSucceeded = true;
-
-  for (const offset of reminderOffsetsDays) {
-    const reminderDate = computeReminderDate(dueDate, offset);
-    try {
-      const eventId = await createAllDayEvent(accessToken, calendarId, reminderDate, title, description);
-      eventIds.push(eventId);
-    } catch {
-      allSucceeded = false;
-    }
-  }
-
-  return { eventIds, allSucceeded };
-}
-
-/** Delete a list of calendar events (best-effort). Never throws. */
-export async function cleanupReminders(
-  accessToken: string,
-  calendarId: string,
-  eventIds: string[],
-): Promise<void> {
-  for (const eventId of eventIds) {
-    try {
-      await deleteEvent(accessToken, calendarId, eventId);
-    } catch {
-      // best-effort — swallow all errors
-    }
-  }
 }
 
 // --- Postpone ---

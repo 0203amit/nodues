@@ -17,12 +17,16 @@ import {
   checkDuplicate,
   sortBills,
   formatMonth,
+  formatCurrency,
   computeDisplayStatus,
+  setCalendarEventIds,
+} from '../services/billsService';
+import {
   parseEventIds,
   createReminders,
   cleanupReminders,
-  setCalendarEventIds,
-} from '../services/billsService';
+  formatDueDate,
+} from '../services/calendarReminders';
 import type {
   Bill,
   BillFormData,
@@ -235,10 +239,11 @@ export default function BillsPage() {
       const billType = billTypes.find(bt => bt.id === data.billTypeId);
       if (newBill.dueDate && billType && billType.reminderOffsetsDays.length > 0) {
         try {
+          const title = `${btInfo?.name ?? ''} \u2014 ${btInfo?.propertyName ?? ''} due ${formatDueDate(newBill.dueDate)}`;
+          const description = `Month: ${formatMonth(data.month)}` + (newBill.amount !== null ? `\nAmount: ${formatCurrency(newBill.amount)}` : '');
           const result = await createReminders(
             accessToken!, calendarId, newBill.dueDate,
-            billType.reminderOffsetsDays, btInfo?.name ?? '',
-            btInfo?.propertyName ?? '', newBill.amount, data.month,
+            billType.reminderOffsetsDays, title, description,
           );
           if (result.eventIds.length > 0) {
             const fresh = freshBills.find(b => b.id === newBill.id);
@@ -289,10 +294,11 @@ export default function BillsPage() {
           if (data.dueDate !== '') {
             const billType = billTypes.find(bt => bt.id === bill.billTypeId);
             const parsedAmount = data.amount.trim() === '' ? null : Number(data.amount);
+            const title = `${billType?.name ?? ''} \u2014 ${billType?.propertyName ?? ''} due ${formatDueDate(data.dueDate)}`;
+            const description = `Month: ${formatMonth(data.month)}` + (parsedAmount !== null ? `\nAmount: ${formatCurrency(parsedAmount)}` : '');
             const result = await createReminders(
               accessToken!, calendarId, data.dueDate,
-              billType?.reminderOffsetsDays ?? [], billType?.name ?? '',
-              billType?.propertyName ?? '', parsedAmount, data.month,
+              billType?.reminderOffsetsDays ?? [], title, description,
             );
             const updated = await setCalendarEventIds(
               accessToken!, spreadsheetId, updatedBill, result.eventIds,
@@ -439,10 +445,11 @@ export default function BillsPage() {
         const billType = billTypes.find(bt => bt.id === postponeTarget.billTypeId);
         if (billType && billType.reminderOffsetsDays.length > 0) {
           // Branch 1: has offsets — create new events
+          const title = `${postponeTarget.billTypeName} \u2014 ${postponeTarget.propertyName} due ${formatDueDate(data.newDueDate)}`;
+          const description = `Month: ${formatMonth(updated.month)}` + (updated.amount !== null ? `\nAmount: ${formatCurrency(updated.amount)}` : '');
           const result = await createReminders(
             accessToken!, calendarId, data.newDueDate,
-            billType.reminderOffsetsDays, postponeTarget.billTypeName,
-            postponeTarget.propertyName, updated.amount, updated.month,
+            billType.reminderOffsetsDays, title, description,
           );
           const withEvents = await setCalendarEventIds(
             accessToken!, spreadsheetId, updated, result.eventIds,
@@ -540,10 +547,11 @@ export default function BillsPage() {
           const billType = billTypes.find(bt => bt.id === bill.billTypeId);
           if (bill.dueDate && billType && billType.reminderOffsetsDays.length > 0) {
             try {
+              const title = `${bill.billTypeName} \u2014 ${bill.propertyName} due ${formatDueDate(bill.dueDate)}`;
+              const description = `Month: ${formatMonth(bill.month)}` + (bill.amount !== null ? `\nAmount: ${formatCurrency(bill.amount)}` : '');
               const result = await createReminders(
                 accessToken!, calendarId, bill.dueDate,
-                billType.reminderOffsetsDays, bill.billTypeName,
-                bill.propertyName, bill.amount, bill.month,
+                billType.reminderOffsetsDays, title, description,
               );
               if (result.eventIds.length > 0) {
                 restoredBill = await setCalendarEventIds(
