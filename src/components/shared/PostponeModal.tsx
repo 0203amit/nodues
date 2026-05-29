@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import type { BillWithDisplay, PostponeFormData } from '../../types';
-import {
-  formatMonth,
-  formatCurrency,
-  formatDueDate,
-} from '../../services/billsService';
+import { X, Loader2 } from 'lucide-react';
+import type { PostponeFormData } from '../../types';
+import { formatDueDate } from '../../services/calendarReminders';
 
 export interface PostponeModalProps {
-  bill: BillWithDisplay;
+  title: string;
+  itemTitle: string;
+  contextLine: string;
+  currentDueDate: string;
   isSaving: boolean;
   onSubmit: (data: PostponeFormData) => void;
   onClose: () => void;
 }
 
 export default function PostponeModal({
-  bill,
+  title,
+  itemTitle,
+  contextLine,
+  currentDueDate,
   isSaving,
   onSubmit,
   onClose,
@@ -28,11 +30,11 @@ export default function PostponeModal({
   // Close on Escape
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isSaving) onClose();
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isSaving]);
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -58,32 +60,48 @@ export default function PostponeModal({
     });
   }
 
+  function handleBackdropClick() {
+    if (!isSaving) onClose();
+  }
+
   return (
     <div
       className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         role="dialog"
-        aria-labelledby="postpone-bill-title"
+        aria-labelledby="postpone-modal-title"
         className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          id="postpone-bill-title"
-          className="text-lg font-semibold text-slate-900 mb-2"
-        >
-          Postpone bill
-        </h2>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h2
+            id="postpone-modal-title"
+            className="text-lg font-semibold text-slate-900"
+          >
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded transition-colors cursor-pointer
+                       min-h-11 min-w-11 inline-flex items-center justify-center
+                       disabled:opacity-50 disabled:cursor-not-allowed
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        {/* Context line */}
-        <p className="text-sm text-slate-600 mb-1">
-          {bill.billTypeName} — {bill.propertyName}
-        </p>
-        <p className="text-sm text-slate-600 mb-4">
-          {formatMonth(bill.month)}
-          {bill.amount !== null && ` · ${formatCurrency(bill.amount)}`}
-        </p>
+        {/* Context lines */}
+        <p className="text-sm text-slate-600 mb-1">{itemTitle}</p>
+        {contextLine && (
+          <p className="text-sm text-slate-600 mb-4">{contextLine}</p>
+        )}
+        {!contextLine && <div className="mb-4" />}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Current due date (read-only) */}
@@ -92,7 +110,7 @@ export default function PostponeModal({
               Current due date
             </span>
             <p className="mt-1 text-base text-slate-900">
-              {formatDueDate(bill.dueDate)}
+              {formatDueDate(currentDueDate)}
             </p>
           </div>
 

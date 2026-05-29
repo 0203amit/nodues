@@ -39,7 +39,7 @@ import type {
 import BillCard from '../components/bills/BillCard';
 import BillFormModal from '../components/bills/BillFormModal';
 import MarkPaidModal from '../components/bills/MarkPaidModal';
-import PostponeModal from '../components/bills/PostponeModal';
+import PostponeModal from '../components/shared/PostponeModal';
 import DuplicateWarningModal from '../components/bills/DuplicateWarningModal';
 import AttachmentsModal from '../components/bills/AttachmentsModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
@@ -790,7 +790,10 @@ export default function BillsPage() {
       {/* Postpone Modal */}
       {postponeTarget && (
         <PostponeModal
-          bill={postponeTarget}
+          title="Postpone bill"
+          itemTitle={`${postponeTarget.billTypeName} \u2014 ${postponeTarget.propertyName}`}
+          contextLine={`${formatMonth(postponeTarget.month)}${postponeTarget.amount !== null ? ` \u00b7 ${formatCurrency(postponeTarget.amount)}` : ''}`}
+          currentDueDate={postponeTarget.dueDate}
           isSaving={isSaving}
           onSubmit={handlePostponeSubmit}
           onClose={() => !isSaving && setPostponeTarget(null)}
