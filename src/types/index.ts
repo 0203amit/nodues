@@ -205,3 +205,98 @@ export interface UploadingFile {
   /** Drive file ID after successful upload. */
   driveFileId: string | null;
 }
+
+// --- To-Do Types ---
+
+/** Stored status values for a to-do row in the Sheet. */
+export type TodoStatus = 'pending' | 'done';
+
+/** Computed display status (derived from stored status + date comparison). Not stored. */
+export type TodoDisplayStatus = 'pending' | 'overdue' | 'done';
+
+export interface Todo {
+  /** 1-based Sheet row index for targeting updates. Not a Sheet column. */
+  _rowIndex: number;
+  id: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  dueDate: string;
+  originalDueDate: string;
+  status: TodoStatus;
+  doneDate: string;
+  recurrencePatternId: string;
+  parentTodoId: string;
+  reminderOffsetsDays: string;
+  attachmentFileIds: string;
+  calendarEventIds: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+}
+
+/** Todo enriched with resolved display fields from TodoCategories and RecurrencePatterns. */
+export interface TodoWithDisplay extends Todo {
+  categoryName: string;
+  categoryColor: string;
+  recurrenceName: string;
+  displayStatus: TodoDisplayStatus;
+}
+
+export interface TodoCategory {
+  /** 1-based Sheet row index for targeting updates. Not a Sheet column. */
+  _rowIndex: number;
+  id: string;
+  name: string;
+  color: string;
+  active: boolean;
+  deletedAt: string;
+}
+
+/** Fields editable via the TodoCategory form. */
+export interface TodoCategoryFormData {
+  name: string;
+  color: string;
+}
+
+export interface RecurrencePattern {
+  /** 1-based Sheet row index for targeting updates. Not a Sheet column. */
+  _rowIndex: number;
+  id: string;
+  name: string;
+  intervalValue: number;
+  intervalUnit: string;
+  anchorDay: number | null;
+  endCondition: string;
+  endValue: string;
+  active: boolean;
+}
+
+/** Fields for the Add/Edit To-Do form. */
+export interface TodoFormData {
+  title: string;
+  description: string;
+  categoryId: string;
+  dueDate: string;
+  recurrencePatternId: string;
+  reminderOffsetsDays: string;
+  notes: string;
+}
+
+/** Fields for the Mark Done form. */
+export interface MarkDoneFormData {
+  notes: string;
+}
+
+/** Preset color palette for to-do categories. */
+export const CATEGORY_COLOR_PALETTE = [
+  { name: 'Slate', hex: '#64748B' },
+  { name: 'Red', hex: '#EF4444' },
+  { name: 'Amber', hex: '#F59E0B' },
+  { name: 'Emerald', hex: '#10B981' },
+  { name: 'Cyan', hex: '#06B6D4' },
+  { name: 'Indigo', hex: '#6366F1' },
+  { name: 'Purple', hex: '#A855F7' },
+  { name: 'Pink', hex: '#EC4899' },
+] as const;

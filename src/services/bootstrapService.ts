@@ -8,6 +8,7 @@ import {
   generateSeedProperties,
   generateSeedBillTypes,
   generateSeedTodoCategories,
+  generateSeedRecurrencePatterns,
 } from '../config/schema';
 import { DRIVE_FOLDER_NAME, SHEET_NAME, CALENDAR_NAME } from '../config/branding';
 
@@ -325,6 +326,17 @@ export async function bootstrap(
       if (!existingCategories?.values?.length) {
         const seedCategories = generateSeedTodoCategories();
         await appendRows(accessToken, spreadsheetId, 'TodoCategories', seedCategories);
+      }
+
+      // RecurrencePatterns
+      const existingPatterns = await readValues(
+        accessToken,
+        spreadsheetId,
+        "'RecurrencePatterns'!A2:A",
+      );
+      if (!existingPatterns?.values?.length) {
+        const seedPatterns = generateSeedRecurrencePatterns();
+        await appendRows(accessToken, spreadsheetId, 'RecurrencePatterns', seedPatterns);
       }
     } catch (error) {
       throw wrapError('seed', error);

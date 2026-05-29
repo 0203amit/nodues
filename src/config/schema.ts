@@ -100,9 +100,20 @@ export function generateSeedBillTypes(propertyIds: Record<string, string>): stri
 /** Returns 4 seed todo-category rows (FR-008). */
 export function generateSeedTodoCategories(): string[][] {
   return [
-    [uuidv4(), 'Insurance', '', 'true', ''],
-    [uuidv4(), 'Tax', '', 'true', ''],
-    [uuidv4(), 'Society', '', 'true', ''],
-    [uuidv4(), 'Maintenance', '', 'true', ''],
+    [uuidv4(), 'Insurance', '#6366F1', 'true', ''],   // Indigo
+    [uuidv4(), 'Tax', '#EF4444', 'true', ''],          // Red
+    [uuidv4(), 'Society', '#10B981', 'true', ''],      // Emerald
+    [uuidv4(), 'Maintenance', '#F59E0B', 'true', ''],  // Amber
+  ];
+}
+
+/** Returns 5 seed recurrence-pattern rows (DD-007). */
+export function generateSeedRecurrencePatterns(): string[][] {
+  return [
+    [uuidv4(), 'One-time', '0', '', '', 'never', '', 'true'],
+    [uuidv4(), 'Every month', '1', 'months', '', 'never', '', 'true'],
+    [uuidv4(), 'Every 3 months', '3', 'months', '', 'never', '', 'true'],
+    [uuidv4(), 'Every 6 months', '6', 'months', '', 'never', '', 'true'],
+    [uuidv4(), 'Every year', '1', 'years', '', 'never', '', 'true'],
   ];
 }
