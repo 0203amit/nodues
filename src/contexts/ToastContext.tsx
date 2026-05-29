@@ -10,7 +10,7 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type ToastVariant = 'success' | 'error';
+export type ToastVariant = 'success' | 'error' | 'info';
 
 export interface Toast {
   id: string;

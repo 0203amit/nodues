@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Bell, Paperclip, Pencil, Receipt, Trash2 } from 'lucide-react';
+import { Bell, CalendarClock, Paperclip, Pencil, Receipt, Trash2 } from 'lucide-react';
 import type { BillWithDisplay } from '../../types';
 import { formatMonth, formatCurrency, parseFileIds } from '../../services/billsService';
 import BillStatusBadge from '../shared/BillStatusBadge';
@@ -7,6 +7,7 @@ import BillStatusBadge from '../shared/BillStatusBadge';
 export interface BillCardProps {
   bill: BillWithDisplay;
   onMarkPaid: (bill: BillWithDisplay) => void;
+  onPostpone: (bill: BillWithDisplay) => void;
   onEdit: (bill: BillWithDisplay) => void;
   onViewAttachments: (bill: BillWithDisplay) => void;
   onDelete: (bill: BillWithDisplay) => void;
@@ -14,7 +15,7 @@ export interface BillCardProps {
 }
 
 const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
-  { bill, onMarkPaid, onEdit, onViewAttachments, onDelete, isLoading },
+  { bill, onMarkPaid, onPostpone, onEdit, onViewAttachments, onDelete, isLoading },
   ref,
 ) {
   const showMarkPaid =
@@ -84,6 +85,23 @@ const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
             aria-label="Mark bill as paid"
           >
             <span>Mark Paid</span>
+          </button>
+        )}
+
+        {showMarkPaid && (
+          <button
+            type="button"
+            onClick={() => onPostpone(bill)}
+            disabled={isLoading}
+            className="text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50
+                       font-medium text-sm px-2 py-1 rounded transition-colors cursor-pointer
+                       min-h-11 min-w-11 inline-flex items-center justify-center gap-1
+                       disabled:opacity-50 disabled:cursor-not-allowed
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            aria-label="Postpone bill"
+          >
+            <CalendarClock className="w-4 h-4" />
+            <span className="hidden sm:inline">Postpone</span>
           </button>
         )}
 

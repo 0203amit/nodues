@@ -10,6 +10,7 @@ import {
   addBill,
   updateBill,
   markBillPaid,
+  postponeBill,
   softDeleteBill,
   undoDeleteBill,
   computeCompositeKey,
@@ -28,11 +29,13 @@ import type {
   BillTypeWithProperty,
   BillWithDisplay,
   MarkPaidFormData,
+  PostponeFormData,
   Property,
 } from '../types';
 import BillCard from '../components/bills/BillCard';
 import BillFormModal from '../components/bills/BillFormModal';
 import MarkPaidModal from '../components/bills/MarkPaidModal';
+import PostponeModal from '../components/bills/PostponeModal';
 import DuplicateWarningModal from '../components/bills/DuplicateWarningModal';
 import AttachmentsModal from '../components/bills/AttachmentsModal';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
@@ -65,6 +68,7 @@ export default function BillsPage() {
     mode: 'add' | 'edit';
     bill?: BillWithDisplay;
   } | null>(null);
+  const [postponeTarget, setPostponeTarget] = useState<BillWithDisplay | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<{
     existingBill: BillWithDisplay;
     pendingFormData: BillFormData;
@@ -403,6 +407,94 @@ export default function BillsPage() {
     }
   }
 
+  // --- Postpone ---
+  function handlePostpone(bill: BillWithDisplay) {
+    setPostponeTarget(bill);
+  }
+
+  async function handlePostponeSubmit(data: PostponeFormData) {
+    if (!postponeTarget) return;
+
+    // Same-date guard — before setIsSaving, modal stays open
+    if (data.newDueDate === postponeTarget.dueDate) {
+      showToast('New date is the same as the current due date.', 'info');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updated = await postponeBill(
+        accessToken!, spreadsheetId,
+        postponeTarget, data.newDueDate, data.reason,
+      );
+
+      // Best-effort calendar (nested try/catch, AFTER critical path)
+      let calendarFailed = false;
+      try {
+        const oldIds = parseEventIds(postponeTarget.calendarEventIds);
+        if (oldIds.length > 0) {
+          await cleanupReminders(accessToken!, calendarId, oldIds);
+        }
+
+        const billType = billTypes.find(bt => bt.id === postponeTarget.billTypeId);
+        if (billType && billType.reminderOffsetsDays.length > 0) {
+          // Branch 1: has offsets — create new events
+          const result = await createReminders(
+            accessToken!, calendarId, data.newDueDate,
+            billType.reminderOffsetsDays, postponeTarget.billTypeName,
+            postponeTarget.propertyName, updated.amount, updated.month,
+          );
+          const withEvents = await setCalendarEventIds(
+            accessToken!, spreadsheetId, updated, result.eventIds,
+          );
+          setBills(prev => prev.map(b => b.id === updated.id ? {
+            ...b, ...updated,
+            calendarEventIds: withEvents.calendarEventIds,
+            displayStatus: computeDisplayStatus(updated.status, updated.dueDate),
+          } : b));
+          if (!result.allSucceeded) {
+            showToast("Bill postponed, but some reminders couldn't be set.", 'error');
+            calendarFailed = true;
+          }
+        } else if (oldIds.length > 0) {
+          // Branch 2: no offsets but old IDs existed — clear the column
+          const cleared = await setCalendarEventIds(
+            accessToken!, spreadsheetId, updated, [],
+          );
+          setBills(prev => prev.map(b => b.id === updated.id ? {
+            ...b, ...updated,
+            calendarEventIds: cleared.calendarEventIds,
+            displayStatus: computeDisplayStatus(updated.status, updated.dueDate),
+          } : b));
+        } else {
+          // Branch 3: neither — just refresh in-memory bill
+          setBills(prev => prev.map(b => b.id === updated.id ? {
+            ...b, ...updated,
+            displayStatus: computeDisplayStatus(updated.status, updated.dueDate),
+          } : b));
+        }
+      } catch {
+        showToast("Bill postponed, but calendar reminders couldn't be updated.", 'error');
+        calendarFailed = true;
+        // Still update in-memory bill so the badge refreshes
+        setBills(prev => prev.map(b => b.id === updated.id ? {
+          ...b, ...updated,
+          displayStatus: computeDisplayStatus(updated.status, updated.dueDate),
+        } : b));
+      }
+
+      // Close modal + success toast (only if no calendar issue toast shown)
+      setPostponeTarget(null);
+      if (!calendarFailed) {
+        showToast('Bill postponed.', 'success');
+      }
+    } catch {
+      showToast('Failed to postpone bill.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // --- Edit ---
   function handleEdit(bill: BillWithDisplay) {
     setFormModal({ mode: 'edit', bill });
@@ -646,6 +738,7 @@ export default function BillsPage() {
               ref={registerBillRef(bill.id)}
               bill={bill}
               onMarkPaid={handleMarkPaid}
+              onPostpone={handlePostpone}
               onEdit={handleEdit}
               onViewAttachments={handleViewAttachments}
               onDelete={handleDelete}
@@ -683,6 +776,16 @@ export default function BillsPage() {
           isSaving={isSaving}
           onSubmit={handleMarkPaidSubmit}
           onClose={() => !isSaving && setMarkPaidTarget(null)}
+        />
+      )}
+
+      {/* Postpone Modal */}
+      {postponeTarget && (
+        <PostponeModal
+          bill={postponeTarget}
+          isSaving={isSaving}
+          onSubmit={handlePostponeSubmit}
+          onClose={() => !isSaving && setPostponeTarget(null)}
         />
       )}
 

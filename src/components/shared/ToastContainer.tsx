@@ -1,12 +1,16 @@
-import { X, Undo2 } from 'lucide-react';
+import { Info, X, Undo2 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import type { Toast } from '../../contexts/ToastContext';
 
 // ── Single Toast ───────────────────────────────────────────────────
 
-function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
-  const isSuccess = toast.variant === 'success';
+const VARIANT_STYLES: Record<Toast['variant'], string> = {
+  success: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+  error: 'bg-red-50 border-red-200 text-red-900',
+  info: 'bg-slate-50 border-slate-200 text-slate-900',
+};
 
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   return (
     <div
       role="status"
@@ -14,14 +18,13 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       className={`
         flex items-center justify-between gap-2 rounded-lg border p-3 shadow-sm
         transition-all duration-200
-        ${
-          isSuccess
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            : 'bg-red-50 border-red-200 text-red-900'
-        }
+        ${VARIANT_STYLES[toast.variant]}
       `}
     >
-      <p className="text-sm font-medium">{toast.message}</p>
+      <div className="flex items-center gap-2">
+        {toast.variant === 'info' && <Info className="w-4 h-4 flex-shrink-0" />}
+        <p className="text-sm font-medium">{toast.message}</p>
+      </div>
       <button
         type="button"
         onClick={onDismiss}
