@@ -46,6 +46,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog';
 import { v4 as uuidv4 } from 'uuid';
 import { appendActivityLogSafe, formatShortDate } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
+import { useSearchParams } from 'react-router-dom';
 
 export default function BillsPage() {
   const { accessToken } = useAuth();
@@ -88,6 +89,12 @@ export default function BillsPage() {
   // Ref for highlight timeout cleanup
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clickthrough support (URL search params)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const pendingFocusRef = useRef<string | null>(null);
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // --- Document title ---
   useEffect(() => {
     document.title = `${APP_TITLE_SUFFIX} \u00b7 Bills`;
@@ -97,8 +104,41 @@ export default function BillsPage() {
   useEffect(() => {
     return () => {
       if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
     };
   }, []);
+
+  // Read URL search params on mount (clickthrough from Dashboard)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const property = searchParams.get('property');
+    const month = searchParams.get('month');
+    const focus = searchParams.get('focus');
+    if (property && property !== 'all') setFilterProperty(property);
+    if (month && month !== 'all') setFilterMonth(month);
+    if (focus) pendingFocusRef.current = focus;
+  }, []);
+
+  // After data loads, scroll to focused bill and highlight
+  useEffect(() => {
+    if (!isLoading && pendingFocusRef.current) {
+      const id = pendingFocusRef.current;
+      pendingFocusRef.current = null;
+      setFocusedId(id);
+      requestAnimationFrame(() => {
+        billRefs.current.get(id)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
+      focusTimerRef.current = setTimeout(() => {
+        setFocusedId(null);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('focus');
+        setSearchParams(params, { replace: true });
+      }, 1500);
+    }
+  }, [isLoading, setSearchParams]);
 
   // --- Data loading ---
   const loadData = useCallback(async () => {
@@ -815,6 +855,7 @@ export default function BillsPage() {
               onViewAttachments={handleViewAttachments}
               onDelete={handleDelete}
               isLoading={isSaving}
+              isFocused={focusedId === bill.id}
             />
           ))}
         </div>

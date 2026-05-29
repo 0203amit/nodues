@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { ListTodo, Pencil, CheckCircle2, CalendarClock, Trash2, Bell } from 'lucide-react';
 import type { TodoWithDisplay } from '../../types';
 import { formatDueDate } from '../../services/calendarReminders';
@@ -10,16 +11,13 @@ export interface TodoCardProps {
   onPostpone: (todo: TodoWithDisplay) => void;
   onDelete: (todo: TodoWithDisplay) => void;
   isLoading: boolean;
+  isFocused?: boolean;
 }
 
-export default function TodoCard({
-  todo,
-  onEdit,
-  onMarkDone,
-  onPostpone,
-  onDelete,
-  isLoading,
-}: TodoCardProps) {
+const TodoCard = forwardRef<HTMLDivElement, TodoCardProps>(function TodoCard(
+  { todo, onEdit, onMarkDone, onPostpone, onDelete, isLoading, isFocused },
+  ref,
+) {
   const showActions = todo.displayStatus === 'pending' || todo.displayStatus === 'overdue';
 
   // Build subtitle parts: categoryName · recurrenceName — omit empty strings
@@ -27,7 +25,10 @@ export default function TodoCard({
   const subtitle = subtitleParts.join(' \u00b7 ');
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4">
+    <div
+      ref={ref}
+      className={`bg-white border border-slate-200 rounded-lg p-4${isFocused ? ' ring-2 ring-indigo-300 ring-offset-2' : ''}`}
+    >
       {/* Top section: info + status badge */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
@@ -140,4 +141,6 @@ export default function TodoCard({
       </div>
     </div>
   );
-}
+});
+
+export default TodoCard;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, ListTodo, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBootstrap } from '../contexts/BootstrapContext';
@@ -34,6 +34,7 @@ import ConfirmDialog from '../components/shared/ConfirmDialog';
 import { v4 as uuidv4 } from 'uuid';
 import { appendActivityLogSafe, formatShortDate } from '../services/activityLogService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
+import { useSearchParams } from 'react-router-dom';
 import type {
   TodoWithDisplay,
   TodoCategory,
@@ -72,10 +73,56 @@ export default function TodosPage() {
   const [postponeTarget, setPostponeTarget] = useState<TodoWithDisplay | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TodoWithDisplay | null>(null);
 
+  // Ref map for scroll-to
+  const todoRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Clickthrough support (URL search params)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const pendingFocusRef = useRef<string | null>(null);
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // --- Document title ---
   useEffect(() => {
     document.title = `${APP_TITLE_SUFFIX} · To-Dos`;
   }, []);
+
+  // Cleanup focus timer on unmount
+  useEffect(() => {
+    return () => {
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+    };
+  }, []);
+
+  // Read URL search params on mount (clickthrough from Dashboard)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const category = searchParams.get('category');
+    const focus = searchParams.get('focus');
+    if (category && category !== 'all') setFilterCategory(category);
+    if (focus) pendingFocusRef.current = focus;
+  }, []);
+
+  // After data loads, scroll to focused todo and highlight
+  useEffect(() => {
+    if (!isLoading && pendingFocusRef.current) {
+      const id = pendingFocusRef.current;
+      pendingFocusRef.current = null;
+      setFocusedId(id);
+      requestAnimationFrame(() => {
+        todoRefs.current.get(id)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
+      focusTimerRef.current = setTimeout(() => {
+        setFocusedId(null);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('focus');
+        setSearchParams(params, { replace: true });
+      }, 1500);
+    }
+  }, [isLoading, setSearchParams]);
 
   // --- Maps for enrichment (derived from allCategories and patterns) ---
   const categoryMap = useMemo(() => {
@@ -636,6 +683,17 @@ export default function TodosPage() {
     }
   }
 
+  // --- Ref callback for TodoCard registration ---
+  function registerTodoRef(todoId: string) {
+    return (el: HTMLDivElement | null) => {
+      if (el) {
+        todoRefs.current.set(todoId, el);
+      } else {
+        todoRefs.current.delete(todoId);
+      }
+    };
+  }
+
   // --- Render ---
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-3xl mx-auto pb-24">
@@ -743,12 +801,14 @@ export default function TodosPage() {
           {filteredTodos.map((todo) => (
             <TodoCard
               key={todo.id}
+              ref={registerTodoRef(todo.id)}
               todo={todo}
               onEdit={handleEdit}
               onMarkDone={handleMarkDone}
               onPostpone={handlePostpone}
               onDelete={handleDelete}
               isLoading={isSaving}
+              isFocused={focusedId === todo.id}
             />
           ))}
         </div>

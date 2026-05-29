@@ -12,10 +12,11 @@ export interface BillCardProps {
   onViewAttachments: (bill: BillWithDisplay) => void;
   onDelete: (bill: BillWithDisplay) => void;
   isLoading: boolean;
+  isFocused?: boolean;
 }
 
 const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
-  { bill, onMarkPaid, onPostpone, onEdit, onViewAttachments, onDelete, isLoading },
+  { bill, onMarkPaid, onPostpone, onEdit, onViewAttachments, onDelete, isLoading, isFocused },
   ref,
 ) {
   const showMarkPaid =
@@ -28,7 +29,7 @@ const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillCard(
   return (
     <div
       ref={ref}
-      className="bg-white border border-slate-200 rounded-lg p-4"
+      className={`bg-white border border-slate-200 rounded-lg p-4${isFocused ? ' ring-2 ring-indigo-300 ring-offset-2' : ''}`}
     >
       {/* Top section: info + amount/badge */}
       <div className="flex items-start justify-between gap-3">
