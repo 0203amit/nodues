@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Receipt, Bell } from 'lucide-react';
+import { Building2, Receipt, Tags, Bell } from 'lucide-react';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 
 interface SettingsCard {
@@ -23,6 +23,12 @@ const CARDS: SettingsCard[] = [
     description: 'Configure bill categories',
     icon: Receipt,
     to: '/settings/bill-types',
+  },
+  {
+    label: 'Categories',
+    description: 'Manage to-do categories',
+    icon: Tags,
+    to: '/settings/categories',
   },
   {
     label: 'Notifications',

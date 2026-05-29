@@ -11,6 +11,7 @@ import TodosPage from "./pages/TodosPage";
 import SettingsPage from "./pages/SettingsPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import BillTypesPage from "./pages/BillTypesPage";
+import CategoriesPage from "./pages/CategoriesPage";
 
 function BootstrapLayout() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/settings/properties" element={<ProtectedRoute><PropertiesPage /></ProtectedRoute>} />
             <Route path="/settings/bill-types" element={<ProtectedRoute><BillTypesPage /></ProtectedRoute>} />
+            <Route path="/settings/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
           </Route>
         </Routes>
       </main>
