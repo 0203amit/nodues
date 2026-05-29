@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route, Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { BootstrapProvider } from "./contexts/BootstrapContext";
 import BootstrapGuard from "./components/bootstrap/BootstrapGuard";
@@ -32,20 +32,26 @@ export default function App() {
       {isAuthenticated && <Navbar />}
       <main>
         <Routes>
-          {!isAuthenticated ? (
-            <Route path="/" element={<LandingPage />} />
-          ) : (
-            <Route path="/" element={<BootstrapLayout />}>
-              <Route index element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-              <Route path="bills" element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
-              <Route path="todos" element={<ProtectedRoute><TodosPage /></ProtectedRoute>} />
-              <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-              <Route path="settings/properties" element={<ProtectedRoute><PropertiesPage /></ProtectedRoute>} />
-              <Route path="settings/bill-types" element={<ProtectedRoute><BillTypesPage /></ProtectedRoute>} />
-              <Route path="settings/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
-              <Route path="settings/activity-log" element={<ProtectedRoute><ActivityLogPage /></ProtectedRoute>} />
-            </Route>
-          )}
+          <Route
+            path="/"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <LandingPage />
+              )
+            }
+          />
+          <Route element={<BootstrapLayout />}>
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/bills" element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
+            <Route path="/todos" element={<ProtectedRoute><TodosPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="/settings/properties" element={<ProtectedRoute><PropertiesPage /></ProtectedRoute>} />
+            <Route path="/settings/bill-types" element={<ProtectedRoute><BillTypesPage /></ProtectedRoute>} />
+            <Route path="/settings/categories" element={<ProtectedRoute><CategoriesPage /></ProtectedRoute>} />
+            <Route path="/settings/activity-log" element={<ProtectedRoute><ActivityLogPage /></ProtectedRoute>} />
+          </Route>
         </Routes>
       </main>
     </div>

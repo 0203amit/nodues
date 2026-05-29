@@ -13,7 +13,7 @@ import { APP_NAME, APP_TAGLINE } from "../../config/branding";
 import { useAuth } from "../../contexts/AuthContext";
 
 const navItems = [
-  { to: "/", label: "Dashboard", Icon: LayoutDashboard, end: true },
+  { to: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { to: "/bills", label: "Bills", Icon: Receipt },
   { to: "/todos", label: "To-Dos", Icon: ListTodo },
   { to: "/settings", label: "Settings", Icon: Settings },
@@ -66,7 +66,7 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Brand */}
         <div className="flex-shrink-0">
-          <NavLink to="/" className="group focus:outline-none">
+          <NavLink to="/dashboard" className="group focus:outline-none">
             <span className="text-lg font-semibold text-indigo-700 group-focus:ring-2 group-focus:ring-indigo-500 group-focus:ring-offset-2 rounded">
               {APP_NAME}
             </span>
@@ -80,7 +80,7 @@ export default function Navbar() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={"end" in item}
+              
               className={({ isActive }) =>
                 `flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
                   isActive
@@ -164,7 +164,7 @@ export default function Navbar() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={"end" in item}
+                  
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
