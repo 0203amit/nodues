@@ -212,8 +212,8 @@ export default function NotificationsPage() {
       await registration.showNotification('NoDues', {
         body: 'Test notification \u2014 push is working!',
         tag: 'nodues-test',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-192x192.png',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
       });
     } catch {
       showToast('Failed to show test notification.', 'error');
