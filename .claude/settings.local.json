@@ -30,7 +30,8 @@
       "Bash(GIT_BRANCH_NAME=\"008-todos-task-tracking\" powershell -ExecutionPolicy Bypass -File \".specify/extensions/git/scripts/powershell/create-new-feature.ps1\" -Json -ShortName \"todos-task-tracking\" \"To-Dos task tracking with categories recurrence due dates reminders\")",
       "Bash(powershell -ExecutionPolicy Bypass -File:*)",
       "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"dashboard\" \"Dashboard — landing page showing money this month, overdue bills + to-dos that need attention, and recent activity \\(Phase 10\\)\")",
-      "Bash(node scripts/generate-icons.mjs:*)"
+      "Bash(node scripts/generate-icons.mjs:*)",
+      "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"daily-push-notifications\" \"Daily push notifications for overdue items\")"
     ]
   }
 }
