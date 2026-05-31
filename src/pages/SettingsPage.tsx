@@ -38,10 +38,9 @@ const CARDS: SettingsCard[] = [
   },
   {
     label: 'Notifications',
-    description: 'Coming soon',
+    description: 'Daily overdue reminders',
     icon: Bell,
-    to: null,
-    disabled: true,
+    to: '/settings/notifications',
   },
 ];
 

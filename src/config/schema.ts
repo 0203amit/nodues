@@ -14,6 +14,7 @@ export const TAB_NAMES = [
   'Todos',
   'PostponeLog',
   'ActivityLog',
+  'PushSubscriptions',
   'Config',
 ] as const;
 
@@ -68,6 +69,14 @@ export const HEADER_DEFINITIONS: HeaderDefinition[] = [
   {
     tabName: 'ActivityLog',
     headers: ['id', 'timestamp', 'user_email', 'action', 'entity_type', 'entity_id', 'summary'],
+  },
+  {
+    tabName: 'PushSubscriptions',
+    headers: [
+      'id', 'user_email', 'endpoint', 'p256dh_key', 'auth_key',
+      'delivery_hour', 'delivery_minute', 'timezone', 'enabled',
+      'created_at', 'last_pushed_at', 'deleted_at',
+    ],
   },
   {
     tabName: 'Config',

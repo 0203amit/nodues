@@ -196,3 +196,23 @@ export async function updateCell(
   const range = `'${tabName}'!${letter}${rowIndex}`;
   await writeValues(accessToken, spreadsheetId, range, [[value]]);
 }
+
+/** Add a new sheet tab to an existing spreadsheet. */
+export async function addSheet(
+  accessToken: string,
+  spreadsheetId: string,
+  tabName: string,
+): Promise<void> {
+  await withRetry(() =>
+    googleApiFetch<unknown>(
+      accessToken,
+      `${SHEETS_API}/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        body: {
+          requests: [{ addSheet: { properties: { title: tabName } } }],
+        },
+      },
+    ),
+  );
+}

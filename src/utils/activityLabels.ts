@@ -1,5 +1,5 @@
 import type { ActionType, ActivityEntityType } from '../types';
-import { Receipt, ListTodo, Home, FileText, Tags } from 'lucide-react';
+import { Receipt, ListTodo, Home, FileText, Tags, Bell } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export const ACTION_LABELS: Record<ActionType, string> = {
@@ -28,6 +28,8 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   category_updated: 'Category updated',
   category_deleted: 'Category deleted',
   category_restored: 'Category restored',
+  push_enabled: 'Push enabled',
+  push_disabled: 'Push disabled',
 };
 
 export const ENTITY_ICONS: Record<ActivityEntityType, LucideIcon> = {
@@ -36,4 +38,5 @@ export const ENTITY_ICONS: Record<ActivityEntityType, LucideIcon> = {
   property: Home,
   billtype: FileText,
   category: Tags,
+  push_subscription: Bell,
 };

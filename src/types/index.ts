@@ -310,9 +310,10 @@ export type ActionType =
   | 'todo_postponed' | 'todo_deleted' | 'todo_restored'
   | 'property_added' | 'property_updated' | 'property_deleted' | 'property_restored'
   | 'billtype_added' | 'billtype_updated' | 'billtype_deleted' | 'billtype_restored'
-  | 'category_added' | 'category_updated' | 'category_deleted' | 'category_restored';
+  | 'category_added' | 'category_updated' | 'category_deleted' | 'category_restored'
+  | 'push_enabled' | 'push_disabled';
 
-export type ActivityEntityType = 'bill' | 'todo' | 'property' | 'billtype' | 'category';
+export type ActivityEntityType = 'bill' | 'todo' | 'property' | 'billtype' | 'category' | 'push_subscription';
 
 export interface ActivityLogEntry {
   _rowIndex: number;
@@ -362,3 +363,21 @@ export type AttentionItem =
       dueDate: string;
       displayStatus: TodoDisplayStatus;
     };
+
+// --- Push Subscription Types ---
+
+export interface PushSubscription {
+  _rowIndex: number;
+  id: string;
+  userEmail: string;
+  endpoint: string;
+  p256dhKey: string;
+  authKey: string;
+  deliveryHour: number;
+  deliveryMinute: number;
+  timezone: string;
+  enabled: boolean;
+  createdAt: string;
+  lastPushedAt: string;
+  deletedAt: string;
+}
