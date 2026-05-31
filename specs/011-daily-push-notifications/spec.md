@@ -304,7 +304,7 @@ When a user reinstalls the app, changes phones, or the browser revokes the push 
 The following steps must be performed once by the app owner before the cron function will work:
 
 1. Create a Google Cloud Service Account in the NoDues project (Console > IAM > Service Accounts > Create).
-2. Grant it the following API scopes: Google Sheets API (read/write), Google Drive API (read-only, to list files shared with it).
+2. Grant it the Google Sheets API (read/write) scope only. (Drive scope is not needed in v1 since NODUES_SHEET_ID is hardcoded; it would only be required for a future multi-user version that enumerates sheets shared with the service account.)
 3. Download the JSON key file.
 4. Share the NoDues Google Sheet with the service account's email address (Editor access, so it can update last_pushed_at).
 5. Generate VAPID keys locally: `npx web-push generate-vapid-keys`.
