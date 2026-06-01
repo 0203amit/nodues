@@ -383,16 +383,46 @@ Verify `quickstart.md` covers:
 
 ### T018: End-to-end test
 
-**Action**: Full manual end-to-end test:
+**Action**: Full manual end-to-end verification after committing T016 + T017 and pushing to `main`.
 
-1. Enable push on device via /settings/notifications
-2. Verify subscription row in Sheet
-3. Manually trigger GitHub Actions workflow (workflow_dispatch)
-4. Verify push notification arrives with correct body
-5. Verify `last_pushed_at` updated in Sheet
-6. Disable → verify no push on next trigger
-7. Re-enable with different delivery_hour → verify time matching
-8. Test with zero overdue items → verify no push sent
+#### Pre-flight
+
+- [ ] `.github/workflows/notify.yml` is committed and pushed to `main`
+- [ ] GitHub repo secret `CRON_SECRET` is set (Settings > Secrets and variables > Actions > Secrets)
+- [ ] GitHub repo variable `VERCEL_NOTIFY_URL` is set to `https://nodues-virid.vercel.app/api/notify` (Settings > Secrets and variables > Actions > Variables)
+- [ ] Vercel has all 8 env vars set (VAPID_PUBLIC_KEY, VITE_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, GOOGLE_SERVICE_ACCOUNT_JSON, NODUES_SHEET_ID, CRON_SECRET, VITE_GOOGLE_CLIENT_ID)
+- [ ] At least one active push subscription exists in the PushSubscriptions sheet tab (enabled=TRUE, deleted_at empty)
+
+#### Manual trigger test
+
+1. [ ] Go to GitHub repo > **Actions** tab
+2. [ ] Click **"Daily Push Notification Cron"** in the left sidebar
+3. [ ] Click **"Run workflow"** dropdown > select default branch > click **"Run workflow"**
+4. [ ] Watch the workflow run in real-time
+5. [ ] **Expected**: workflow completes successfully (green check), curl gets 200 response, no errors in the logs
+
+#### Push delivery verification
+
+6. [ ] If you have at least one active subscription AND `delivery_hour` matches the current IST hour AND there is at least one overdue item: **push notification arrives on your device** with title "NoDues" and body listing overdue items
+7. [ ] Check PushSubscriptions tab in the Sheet: `last_pushed_at` column is updated to the current ISO timestamp
+8. [ ] If `delivery_hour` does NOT match the current IST hour: the function returns `pushesSent: 0` (expected — hour mismatch). To force a match, temporarily edit `delivery_hour` in the Sheet to the current IST hour and re-trigger.
+
+#### Idempotency check
+
+9. [ ] Immediately re-trigger the workflow (within the same hour)
+10. [ ] **Expected**: function returns `pushesSkipped: 1` (or however many subs exist) because `last_pushed_at` is within 23 hours. No duplicate notification.
+
+#### Automated cron verification
+
+11. [ ] Wait until the next hour boundary (minute 0 UTC)
+12. [ ] Check the Actions tab: a new workflow run should appear triggered **"by schedule"** (not "manually")
+13. [ ] **Expected**: the scheduled run completes with a green check, same as the manual trigger
+
+#### Edge cases (optional, for thoroughness)
+
+14. [ ] Disable notifications on device (toggle OFF in /settings/notifications) → re-trigger workflow → no push sent (row is soft-deleted)
+15. [ ] Re-enable with a different `delivery_hour` → verify the function only sends when the hour matches
+16. [ ] Clear all overdue items (pay/complete everything) → trigger workflow → function returns `pushesSent: 0`, no notification
 
 **FR**: All FRs (FR-001 through FR-025), CL-001
-**Done when**: All 8 test steps pass. Full pipeline works: GitHub Actions → Vercel function → Sheet read → Web Push → device notification.
+**Done when**: Steps 1–13 pass. Full pipeline works: GitHub Actions (cron) → Vercel /api/notify → Google Sheets read (Service Account) → web-push → browser push service → device notification.

@@ -1,0 +1,19 @@
+name: Daily Push Notification Cron
+on:
+  schedule:
+    # Runs hourly at minute 0 UTC. Approximate 60-min window for
+    # matching user delivery times.
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Allows manual triggering from GitHub UI for testing
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call NoDues notify endpoint
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f \
+            ${{ vars.VERCEL_NOTIFY_URL }}

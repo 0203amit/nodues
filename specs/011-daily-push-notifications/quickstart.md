@@ -11,7 +11,8 @@
 - Phases 1–13 complete (through PWA support)
 - Branch: `011-daily-push-notifications`
 - Vercel account (Hobby tier) with the project deployed
-- Google Cloud project with a Service Account (needed for Chunk 2)
+- Google Cloud project with a Service Account (needed for the serverless function)
+- GitHub repo with Actions enabled
 
 ## Dev Server
 
@@ -25,87 +26,181 @@ npm run dev
 npm run build
 ```
 
-## One-Time Setup
+---
 
-### Before Chunk 1 (client-side development)
+## Complete One-Time Setup
 
-No external setup needed. The VAPID public key is required at runtime but can be deferred — the Notifications page gracefully handles a missing key by showing an error.
+Everything below is done once. After setup, daily push notifications
+run automatically with no manual intervention.
 
-For local testing of the subscription flow, generate VAPID keys and set the Vite env var:
+### Step 1: Generate VAPID Keys
 
-```bash
-npx web-push generate-vapid-keys
-```
-
-Create a `.env.local` file (gitignored):
-```
-VITE_VAPID_PUBLIC_KEY=<your-vapid-public-key>
-```
-
-### Before Chunk 2 (Vercel serverless function)
-
-#### 1. Google Service Account
-
-1. Go to Google Cloud Console > IAM & Admin > Service Accounts > Create
-2. Grant scope: Google Sheets API (read/write)
-3. Create and download a JSON key file
-4. Share the NoDues Google Sheet with the service account's email address (Editor access)
-5. Stringify the JSON: `cat key.json | jq -c .`
-
-#### 2. VAPID Keys
+VAPID (Voluntary Application Server Identification) keys are used to
+authenticate your server with the browser push service.
 
 ```bash
 npx web-push generate-vapid-keys
 ```
 
-Save both the public key and private key.
+Save both the **public key** and **private key**. You'll need them in
+Steps 3 and 6.
 
-#### 3. Vercel Environment Variables
+### Step 2: Create a Google Service Account
 
-Add to Vercel project settings (Settings > Environment Variables):
+The Vercel serverless function uses a Service Account to read/write
+the Google Sheet (it can't use the user's OAuth token).
 
-| Variable | Value | Scope |
-|----------|-------|-------|
-| `VAPID_PUBLIC_KEY` | *(from step 2)* | Server |
-| `VITE_VAPID_PUBLIC_KEY` | *(same as VAPID_PUBLIC_KEY)* | Client (Vite-prefixed) |
-| `VAPID_PRIVATE_KEY` | *(from step 2)* | Server only |
-| `VAPID_SUBJECT` | `mailto:your-email@example.com` | Server only |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | *(stringified JSON from step 1)* | Server only |
-| `NODUES_SHEET_ID` | *(your spreadsheet ID from the Sheet URL)* | Server only |
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) >
+   **IAM & Admin** > **Service Accounts** > **Create Service Account**
+2. Name it something like `nodues-push-cron`
+3. No roles needed at the project level (Sheet access is granted via
+   sharing, not IAM roles)
+4. Click **Create Key** > JSON > Download the key file
+5. Share the NoDues Google Sheet with the service account's email
+   address (the `client_email` field in the JSON key file). Grant
+   **Editor** access so it can update `last_pushed_at`.
+6. Stringify the JSON for use as an env var:
+   ```bash
+   cat key.json | jq -c .
+   ```
+   Copy the single-line output.
 
-### Before Chunk 3 (GitHub Actions cron)
+> **Security note**: The JSON key file contains a private key. Never
+> commit it to the repo. Store it only in Vercel env vars.
 
-#### 4. CRON_SECRET
+### Step 3: Generate CRON_SECRET
 
-Generate a random secret:
+A shared secret that authenticates the GitHub Actions cron request to
+the Vercel function, preventing unauthorized access.
+
 ```bash
 openssl rand -hex 32
 ```
 
-Add it in two places:
-- **Vercel**: Settings > Environment Variables > `CRON_SECRET`
-- **GitHub**: Repo Settings > Secrets and variables > Actions > New repository secret > Name: `CRON_SECRET`
+Save the output. You'll add it to both Vercel and GitHub.
 
-#### 5. VERCEL_NOTIFY_URL
+### Step 4: Set Vercel Environment Variables
 
-- GitHub repo Settings > Secrets and variables > Actions > **Variables** tab (not Secrets)
-- Add variable `VERCEL_NOTIFY_URL` with value: `https://your-app.vercel.app/api/notify`
+Go to Vercel project **Settings** > **Environment Variables** and add
+all 8 variables:
+
+| Variable | Value | Sensitive? | Notes |
+|----------|-------|------------|-------|
+| `VAPID_PUBLIC_KEY` | *(from Step 1)* | No | Server-side VAPID public key |
+| `VITE_VAPID_PUBLIC_KEY` | *(same as VAPID_PUBLIC_KEY)* | No | Client-side (Vite-prefixed, bundled into the app) |
+| `VAPID_PRIVATE_KEY` | *(from Step 1)* | **Yes** | Never expose to client |
+| `VAPID_SUBJECT` | `mailto:your-email@example.com` | No | Contact URI for VAPID identification |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | *(stringified JSON from Step 2)* | **Yes** | Full service account credentials |
+| `NODUES_SHEET_ID` | *(spreadsheet ID from the Sheet URL)* | No | The part between `/d/` and `/edit` in the Sheet URL |
+| `CRON_SECRET` | *(from Step 3)* | **Yes** | Shared secret for cron authentication |
+| `VITE_GOOGLE_CLIENT_ID` | *(already set from earlier phases)* | No | Existing — listed for completeness |
+
+> **Tip**: The spreadsheet ID is in the URL:
+> `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit`
+
+### Step 5: Set GitHub Repository Secret and Variable
+
+Go to the GitHub repo **Settings** > **Secrets and variables** >
+**Actions**.
+
+**Secret** (encrypted, not visible after saving):
+
+| Name | Value |
+|------|-------|
+| `CRON_SECRET` | *(same value as the Vercel CRON_SECRET from Step 3)* |
+
+**Variable** (visible, not encrypted — this is just a URL):
+
+| Name | Value |
+|------|-------|
+| `VERCEL_NOTIFY_URL` | `https://nodues-virid.vercel.app/api/notify` |
+
+> **Important**: `CRON_SECRET` goes under the **Secrets** tab.
+> `VERCEL_NOTIFY_URL` goes under the **Variables** tab. They are
+> different sections on the same page.
+
+### Step 6: The Workflow File
+
+The file `.github/workflows/notify.yml` is already in the repo
+(added in Chunk 3). It runs hourly at minute 0 UTC via GitHub Actions
+cron and calls the Vercel notify endpoint with the `CRON_SECRET`.
+
+The workflow becomes active as soon as the file is pushed to the
+default branch (`main`).
+
+```yaml
+name: Daily Push Notification Cron
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call NoDues notify endpoint
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f \
+            ${{ vars.VERCEL_NOTIFY_URL }}
+```
+
+Key details:
+- `cron: '0 * * * *'` — runs at the top of every hour (UTC)
+- `workflow_dispatch` — allows manual triggering from the GitHub UI
+- `-f` flag on curl — makes the job fail (red) on non-2xx responses
+- `secrets.CRON_SECRET` — injected from repo secrets (Step 5)
+- `vars.VERCEL_NOTIFY_URL` — injected from repo variables (Step 5)
+
+### Step 7: Verify with Manual Trigger
+
+After pushing the workflow file to `main`:
+
+1. Go to the GitHub repo > **Actions** tab
+2. Click **"Daily Push Notification Cron"** in the left sidebar
+3. Click **"Run workflow"** dropdown (top right)
+4. Select the default branch and click **"Run workflow"**
+5. Watch the workflow run — it should complete with a green check
+6. If you have an active subscription + overdue items + matching
+   delivery hour: a push notification arrives on your device
+7. Check the PushSubscriptions tab in the Sheet — `last_pushed_at`
+   should be updated
 
 ---
 
-## Files to Create
+## Architecture Summary
+
+```
+GitHub Actions (hourly cron)
+  → HTTP POST with Bearer CRON_SECRET
+    → Vercel /api/notify
+      → Google Sheets API (via Service Account)
+        → Read PushSubscriptions (filter by hour + enabled)
+        → Read Bills + Todos (compute overdue)
+        → web-push sendNotification()
+          → Browser push service
+            → Device notification
+```
+
+---
+
+## Files Created/Modified
+
+### New Files
 
 | File | Purpose |
-|---|---|
+|------|---------|
 | `src/services/pushSubscriptionsService.ts` | CRUD for PushSubscriptions sheet tab + lazy tab creation |
 | `src/pages/NotificationsPage.tsx` | Notifications settings page (toggle, time picker, test button) |
 | `api/notify.ts` | Vercel serverless function for reading overdue items + sending pushes |
 | `.github/workflows/notify.yml` | GitHub Actions hourly cron that POSTs to the Vercel endpoint |
 
-## Files to Modify
+### Modified Files
 
 | File | Changes |
-|---|---|
+|------|---------|
 | `src/types/index.ts` | Add `PushSubscription` interface, extend `ActionType` + `ActivityEntityType` |
 | `src/config/schema.ts` | Add `'PushSubscriptions'` to `TAB_NAMES` + `HEADER_DEFINITIONS` |
 | `src/services/sheetsService.ts` | Add `addSheet()` helper function |
@@ -118,76 +213,23 @@ Add it in two places:
 
 ---
 
-## Implementation Order (3 Chunks)
+## Troubleshooting
 
-### Chunk 1: Client-Side (Schema + UI + Service Worker)
+**Workflow doesn't appear in Actions tab**: Make sure the `.yml` file
+is on the default branch (`main`). Workflows on feature branches don't
+show up for `workflow_dispatch` until merged.
 
-All client-side work. Testable with `npm run dev` and manual toggle testing.
+**Workflow runs but fails**: Check the run logs. Common causes:
+- `CRON_SECRET` not set in repo secrets (401 from Vercel)
+- `VERCEL_NOTIFY_URL` not set in repo variables (curl fails)
+- Vercel function not deployed (404)
 
-1. Add `PushSubscription` type to `src/types/index.ts`
-2. Extend `ActionType` with `push_enabled` / `push_disabled`
-3. Extend `ActivityEntityType` with `push_subscription`
-4. Add PushSubscriptions to `TAB_NAMES` + `HEADER_DEFINITIONS` in `src/config/schema.ts`
-5. Add `addSheet()` helper to `src/services/sheetsService.ts`
-6. Create `src/services/pushSubscriptionsService.ts`
-7. Upgrade `public/sw.js` with push + notificationclick handlers
-8. Create `src/pages/NotificationsPage.tsx`
-9. Update `src/pages/SettingsPage.tsx` (enable Notifications card)
-10. Update `src/App.tsx` (add `/settings/notifications` route)
-11. Add labels to `src/utils/activityLabels.ts`
-12. Run `npm run build` — verify clean compile
+**No push notification arrives**: The function only sends when ALL of:
+- At least one active subscription exists (enabled=TRUE, deleted_at empty)
+- `delivery_hour` matches the current IST hour
+- `last_pushed_at` is older than 23 hours (or empty)
+- There is at least one overdue bill or todo
 
-### Chunk 2: Server-Side (Vercel Serverless Function)
-
-Requires one-time setup steps 1-3 (Service Account, VAPID keys, Vercel env vars).
-
-1. Add dependencies: `web-push`, `google-auth-library`, `@vercel/node`, `@types/web-push`
-2. Add `api/` to eslint `globalIgnores`
-3. Create `api/notify.ts`
-4. Deploy to Vercel, test with curl
-
-### Chunk 3: Scheduling (GitHub Actions Cron)
-
-Requires one-time setup steps 4-5 (CRON_SECRET, VERCEL_NOTIFY_URL).
-
-1. Create `.github/workflows/notify.yml`
-2. Push to GitHub to register the workflow
-3. End-to-end test (manual trigger + automated cron)
-
----
-
-## Manual Testing
-
-### Chunk 1 Tests
-
-1. Navigate to Settings > Notifications card should be clickable (not greyed out)
-2. Click > navigates to `/settings/notifications` > page renders
-3. If browser doesn't support Push: informational message shown, toggle disabled
-4. Toggle "Enable" ON > browser permission prompt appears
-5. Grant permission > toggle shows ON, status shows "Subscribed"
-6. Check Google Sheet > PushSubscriptions tab exists with a new row containing endpoint, keys, delivery_hour=8
-7. Tap "Test notification" button > notification appears immediately on device
-8. Change delivery time from 08:00 to 20:00 > Sheet row's `delivery_hour` updates to 20
-9. Toggle "Enable" OFF > Sheet row gets `deleted_at` timestamp, browser unsubscribes
-10. Check ActivityLog tab > `push_enabled` and `push_disabled` entries present with `push_subscription` entity type
-11. Re-visit page > toggle shows OFF, status shows "Not subscribed"
-
-### Chunk 2 Tests
-
-1. Deploy updated code to Vercel
-2. `curl -X POST https://your-app.vercel.app/api/notify` > 401 (no auth)
-3. `curl -X GET -H "Authorization: Bearer $CRON_SECRET" .../api/notify` > 405 (wrong method)
-4. `curl -X POST -H "Authorization: Bearer $CRON_SECRET" .../api/notify` > 200 with JSON summary
-5. If device is subscribed and has overdue items > push notification appears
-6. Check Sheet > `last_pushed_at` column is updated with current timestamp
-7. Re-run curl immediately > `pushesSkipped` should be non-zero (idempotency: last push < 23h)
-8. If no overdue items > summary shows `pushesSent: 0`, no notification sent
-
-### Chunk 3 Tests
-
-1. Manually trigger GitHub Actions workflow: Actions tab > "Daily Push Notification Cron" > Run workflow
-2. Verify workflow run succeeds (green check mark)
-3. Push notification arrives on subscribed device (if overdue items exist)
-4. Wait for next automated hourly cron run > verify it fires and logs succeed
-5. Disable notifications on device > next cron run shows `pushesSkipped` or `subscriptionsChecked: 0`
-6. Test 410 cleanup: invalidate a subscription (clear browser data), trigger cron > row should get `deleted_at` set
+**GitHub disables the scheduled workflow**: GitHub auto-disables
+scheduled workflows in repos with no activity for 60 days. Any commit
+re-activates it.
