@@ -1,5 +1,5 @@
 import type { ActionType, ActivityEntityType } from '../types';
-import { Receipt, ListTodo, Home, FileText, Tags, Bell } from 'lucide-react';
+import { Receipt, ListTodo, Home, FileText, Tags, Bell, Landmark } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export const ACTION_LABELS: Record<ActionType, string> = {
@@ -30,6 +30,15 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   category_restored: 'Category restored',
   push_enabled: 'Push enabled',
   push_disabled: 'Push disabled',
+  // Phase 16: Rentals
+  tenancy_added: 'Tenant added',
+  tenancy_updated: 'Tenant updated',
+  tenancy_toggled: 'Tenant toggled',
+  tenancy_deleted: 'Tenant deleted',
+  tenancy_restored: 'Tenant restored',
+  rent_auto_generated: 'Rent auto-generated',
+  payment_received: 'Payment received',
+  payment_deleted: 'Payment deleted',
 };
 
 export const ENTITY_ICONS: Record<ActivityEntityType, LucideIcon> = {
@@ -39,4 +48,8 @@ export const ENTITY_ICONS: Record<ActivityEntityType, LucideIcon> = {
   billtype: FileText,
   category: Tags,
   push_subscription: Bell,
+  // Phase 16: Rentals
+  tenancy: Landmark,
+  rent_collection: Landmark,
+  payment_event: Landmark,
 };

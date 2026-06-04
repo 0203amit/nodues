@@ -79,6 +79,29 @@ export const HEADER_DEFINITIONS: HeaderDefinition[] = [
     ],
   },
   {
+    tabName: 'Tenancies',
+    headers: [
+      'id', 'property_id', 'unit_label', 'name', 'phone', 'email',
+      'rent_amount', 'security_deposit', 'rent_due_day', 'lease_start_date',
+      'lease_end_date', 'is_active', 'notes', 'created_at', 'updated_at',
+      'deleted_at',
+    ],
+  },
+  {
+    tabName: 'RentCollections',
+    headers: [
+      'id', 'tenancy_id', 'month', 'expected_amount', 'due_date',
+      'notes', 'composite_key', 'created_at', 'updated_at', 'deleted_at',
+    ],
+  },
+  {
+    tabName: 'PaymentEvents',
+    headers: [
+      'id', 'collection_id', 'amount', 'payment_date', 'payment_method',
+      'notes', 'created_at', 'updated_at', 'deleted_at',
+    ],
+  },
+  {
     tabName: 'Config',
     headers: ['key', 'value'],
   },

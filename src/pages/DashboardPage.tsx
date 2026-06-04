@@ -318,12 +318,14 @@ export default function DashboardPage() {
                     onClick={() => {
                       if (item.kind === 'bill') {
                         navigate(`/bills?property=${item.propertyId}&month=${item.month}&focus=${item.id}`);
-                      } else {
+                      } else if (item.kind === 'todo') {
                         navigate(
                           item.categoryId
                             ? `/todos?category=${item.categoryId}&focus=${item.id}`
                             : `/todos?focus=${item.id}`,
                         );
+                      } else {
+                        navigate('/rentals');
                       }
                     }}
                   >
@@ -342,7 +344,7 @@ export default function DashboardPage() {
                           <p className="text-sm text-slate-500 mt-0.5">{formatDueDate(item.dueDate)}</p>
                         </div>
                       </div>
-                    ) : (
+                    ) : item.kind === 'todo' ? (
                       <div className="flex items-start gap-3">
                         <ListTodo className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
@@ -366,7 +368,7 @@ export default function DashboardPage() {
                           <p className="text-sm text-slate-500 mt-0.5">{formatDueDate(item.dueDate)}</p>
                         </div>
                       </div>
-                    )}
+                    ) : null}
                   </button>
                 ))}
               </div>

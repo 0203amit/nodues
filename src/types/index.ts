@@ -311,9 +311,17 @@ export type ActionType =
   | 'property_added' | 'property_updated' | 'property_deleted' | 'property_restored'
   | 'billtype_added' | 'billtype_updated' | 'billtype_deleted' | 'billtype_restored'
   | 'category_added' | 'category_updated' | 'category_deleted' | 'category_restored'
-  | 'push_enabled' | 'push_disabled';
+  | 'push_enabled' | 'push_disabled'
+  // Phase 16: Rentals
+  | 'tenancy_added' | 'tenancy_updated' | 'tenancy_toggled'
+  | 'tenancy_deleted' | 'tenancy_restored'
+  | 'rent_auto_generated'
+  | 'payment_received' | 'payment_deleted';
 
-export type ActivityEntityType = 'bill' | 'todo' | 'property' | 'billtype' | 'category' | 'push_subscription';
+export type ActivityEntityType =
+  | 'bill' | 'todo' | 'property' | 'billtype' | 'category' | 'push_subscription'
+  // Phase 16: Rentals
+  | 'tenancy' | 'rent_collection' | 'payment_event';
 
 export interface ActivityLogEntry {
   _rowIndex: number;
@@ -362,6 +370,19 @@ export type AttentionItem =
       categoryColor: string;
       dueDate: string;
       displayStatus: TodoDisplayStatus;
+    }
+  | {
+      kind: 'rent';
+      id: string;
+      tenancyName: string;
+      unitLabel: string;
+      propertyId: string;
+      propertyName: string;
+      month: string;
+      dueDate: string;
+      expectedAmount: number;
+      totalReceived: number;
+      displayStatus: RentDisplayStatus;
     };
 
 // --- Push Subscription Types ---
@@ -380,4 +401,90 @@ export interface PushSubscription {
   createdAt: string;
   lastPushedAt: string;
   deletedAt: string;
+}
+
+// --- Rental Types ---
+
+export interface Tenancy {
+  _rowIndex: number;
+  id: string;
+  propertyId: string;
+  unitLabel: string;
+  name: string;
+  phone: string;
+  email: string;
+  rentAmount: number;
+  securityDeposit: number | null;
+  rentDueDay: number;
+  leaseStartDate: string;
+  leaseEndDate: string;
+  isActive: boolean;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+}
+
+export interface TenancyWithDisplay extends Tenancy {
+  propertyName: string;
+}
+
+export interface TenancyFormData {
+  propertyId: string;
+  unitLabel: string;
+  name: string;
+  phone: string;
+  email: string;
+  rentAmount: string;
+  securityDeposit: string;
+  rentDueDay: string;
+  leaseStartDate: string;
+  leaseEndDate: string;
+  notes: string;
+}
+
+export type RentDisplayStatus = 'received' | 'partial' | 'pending' | 'overdue';
+
+export interface RentCollection {
+  _rowIndex: number;
+  id: string;
+  tenancyId: string;
+  month: string;
+  expectedAmount: number;
+  dueDate: string;
+  notes: string;
+  compositeKey: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+}
+
+export interface RentCollectionWithDisplay extends RentCollection {
+  tenancyName: string;
+  unitLabel: string;
+  propertyId: string;
+  propertyName: string;
+  totalReceived: number;
+  remainingBalance: number;
+  displayStatus: RentDisplayStatus;
+}
+
+export interface PaymentEvent {
+  _rowIndex: number;
+  id: string;
+  collectionId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+}
+
+export interface PaymentEventFormData {
+  amount: string;
+  paymentDate: string;
+  paymentMethod: string;
+  notes: string;
 }
