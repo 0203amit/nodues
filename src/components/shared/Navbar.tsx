@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Receipt,
   ListTodo,
+  Landmark,
   Settings,
   Menu,
   X,
@@ -16,6 +17,7 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { to: "/bills", label: "Bills", Icon: Receipt },
   { to: "/todos", label: "To-Dos", Icon: ListTodo },
+  { to: "/rentals", label: "Rentals", Icon: Landmark },
   { to: "/settings", label: "Settings", Icon: Settings },
 ];
 
