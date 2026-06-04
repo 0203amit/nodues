@@ -495,6 +495,30 @@ export default function BillsPage() {
               entityId: newBill.id,
               summary: `Bill auto-created from recurrence: ${markPaidTarget.billTypeName} — ${markPaidTarget.propertyName} ${formatMonth(newBill.month)}`,
             });
+
+            // Calendar reminders on auto-created bill (best-effort, nested try/catch)
+            try {
+              if (newBill.dueDate && billType.reminderOffsetsDays.length > 0) {
+                const title = `${billType.name} \u2014 ${markPaidTarget.propertyName} due ${formatDueDate(newBill.dueDate)}`;
+                const description = `Month: ${formatMonth(newBill.month)}` + (newBill.amount !== null ? `\nAmount: ${formatCurrency(newBill.amount)}` : '');
+                const result = await createReminders(
+                  accessToken!, calendarId, newBill.dueDate,
+                  billType.reminderOffsetsDays, title, description,
+                );
+                if (result.eventIds.length > 0) {
+                  const freshBills = await refetchBills();
+                  const freshBill = freshBills.find(b => b.id === newBill.id);
+                  if (freshBill) {
+                    await setCalendarEventIds(
+                      accessToken!, spreadsheetId, freshBill, result.eventIds,
+                    );
+                  }
+                }
+              }
+            } catch {
+              showToast("Bill marked paid, but reminders couldn't be set for the next bill.", 'error');
+            }
+
             showToast(`Next ${markPaidTarget.billTypeName} bill created for ${formatMonth(newBill.month)}.`, 'success');
             recurrenceHandledToast = true;
           }
