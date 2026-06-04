@@ -99,7 +99,12 @@ export default function BillTypesPage() {
           entityId: newBt.id,
           summary: `${data.name}`,
         });
-        showToast('Bill type added.', 'success');
+        showToast(
+          data.frequency !== 'one-time'
+            ? 'Bill type added. Add the first bill to start the recurrence.'
+            : 'Bill type added.',
+          'success',
+        );
       } else if (modalMode === 'edit' && editTarget) {
         const updated = await updateBillType(accessToken!, spreadsheetId, editTarget, data);
         setBillTypes((prev) =>
