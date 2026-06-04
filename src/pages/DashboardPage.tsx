@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Loader2, RotateCw, Receipt, ListTodo, CheckCircle2, History } from 'lucide-react';
+import { Loader2, RotateCw, Receipt, ListTodo, Landmark, CheckCircle2, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBootstrap } from '../contexts/BootstrapContext';
 import { useToast } from '../contexts/ToastContext';
@@ -11,6 +11,9 @@ import { fetchTodos } from '../services/todosService';
 import { fetchAllCategories } from '../services/todoCategoriesService';
 import { fetchRecurrencePatterns } from '../services/recurrencePatternsService';
 import { fetchActivityLog } from '../services/activityLogService';
+import { fetchTenancies } from '../services/tenanciesService';
+import { fetchRentCollections, computeRentStatus } from '../services/rentCollectionsService';
+import { fetchPaymentEvents } from '../services/paymentEventsService';
 import { formatDueDate } from '../services/calendarReminders';
 import ActivityRow from '../components/shared/ActivityRow';
 import { APP_TITLE_SUFFIX } from '../config/branding';
@@ -22,6 +25,9 @@ import type {
   Property,
   BillWithDisplay,
   TodoWithDisplay,
+  TenancyWithDisplay,
+  RentCollection,
+  PaymentEvent,
 } from '../types';
 
 export default function DashboardPage() {
@@ -35,6 +41,12 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [moneyThisMonth, setMoneyThisMonth] = useState<MoneyThisMonth | null>(null);
+  const [rentThisMonth, setRentThisMonth] = useState<{
+    totalExpected: number;
+    totalReceived: number;
+    totalOutstanding: number;
+    byProperty: { propertyId: string; propertyName: string; expected: number; received: number }[];
+  } | null>(null);
   const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityLogEntry[]>([]);
   const lastFetchAt = useRef<number>(0);
@@ -107,6 +119,21 @@ export default function DashboardPage() {
       }
     }
 
+    // Phase 3: Rental data (may not exist if user hasn't visited /rentals yet)
+    const propMap = new Map<string, string>();
+    for (const p of properties) propMap.set(p.id, p.name);
+
+    let tenancies: TenancyWithDisplay[] = [];
+    let rentCollections: RentCollection[] = [];
+    let paymentEvents: PaymentEvent[] = [];
+    try {
+      [tenancies, rentCollections, paymentEvents] = await Promise.all([
+        fetchTenancies(token, ssId, propMap),
+        fetchRentCollections(token, ssId),
+        fetchPaymentEvents(token, ssId),
+      ]);
+    } catch { /* tabs may not exist yet */ }
+
     // --- Compute Money This Month (T015) ---
     const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const currentMonth = todayIST.slice(0, 7);
@@ -148,6 +175,57 @@ export default function DashboardPage() {
 
     setMoneyThisMonth({ outstanding, paid, byProperty });
 
+    // --- Compute Rent Collected This Month (T054) ---
+    // Build payment sums by collection ID
+    const paymentSumByCollection = new Map<string, number>();
+    for (const pe of paymentEvents) {
+      if (pe.deletedAt !== '') continue;
+      paymentSumByCollection.set(pe.collectionId, (paymentSumByCollection.get(pe.collectionId) || 0) + pe.amount);
+    }
+
+    // Build tenancy lookup
+    const tenancyById = new Map<string, TenancyWithDisplay>();
+    for (const t of tenancies) tenancyById.set(t.id, t);
+
+    const currentMonthCollections = rentCollections.filter(
+      c => c.deletedAt === '' && c.month === currentMonth,
+    );
+
+    if (currentMonthCollections.length > 0) {
+      let rentExpected = 0;
+      let rentReceived = 0;
+      const rentByProperty = new Map<string, { propertyId: string; propertyName: string; expected: number; received: number }>();
+
+      for (const coll of currentMonthCollections) {
+        const received = paymentSumByCollection.get(coll.id) || 0;
+        rentExpected += coll.expectedAmount;
+        rentReceived += received;
+
+        const ten = tenancyById.get(coll.tenancyId);
+        if (ten && ten.isActive) {
+          const key = ten.propertyId;
+          const existing = rentByProperty.get(key) ?? {
+            propertyId: ten.propertyId,
+            propertyName: ten.propertyName,
+            expected: 0,
+            received: 0,
+          };
+          existing.expected += coll.expectedAmount;
+          existing.received += received;
+          rentByProperty.set(key, existing);
+        }
+      }
+
+      setRentThisMonth({
+        totalExpected: rentExpected,
+        totalReceived: rentReceived,
+        totalOutstanding: Math.max(0, rentExpected - rentReceived),
+        byProperty: Array.from(rentByProperty.values()),
+      });
+    } else {
+      setRentThisMonth(null);
+    }
+
     // --- Compute Attention Items (T016) ---
     const overdueBills: AttentionItem[] = bills
       .filter(b => b.displayStatus === 'overdue')
@@ -176,10 +254,36 @@ export default function DashboardPage() {
         displayStatus: t.displayStatus,
       }));
 
-    const merged = [...overdueBills, ...overdueTodos].sort((a, b) => {
+    // Overdue rent items (T055) — iterate ALL non-deleted collections
+    const overdueRentItems: AttentionItem[] = [];
+    for (const coll of rentCollections) {
+      if (coll.deletedAt !== '') continue;
+      const totalRcv = paymentSumByCollection.get(coll.id) || 0;
+      const status = computeRentStatus(coll.expectedAmount, totalRcv, coll.month, todayIST);
+      if (status !== 'overdue') continue;
+
+      const ten = tenancyById.get(coll.tenancyId);
+      if (!ten) continue;
+      overdueRentItems.push({
+        kind: 'rent',
+        id: coll.id,
+        tenancyName: ten.name,
+        unitLabel: ten.unitLabel,
+        propertyId: ten.propertyId,
+        propertyName: ten.propertyName,
+        month: coll.month,
+        dueDate: coll.dueDate,
+        expectedAmount: coll.expectedAmount,
+        totalReceived: totalRcv,
+        displayStatus: status,
+      });
+    }
+
+    const merged = [...overdueBills, ...overdueRentItems, ...overdueTodos].sort((a, b) => {
       const dateCompare = a.dueDate.localeCompare(b.dueDate);
       if (dateCompare !== 0) return dateCompare;
-      return a.kind === 'bill' ? -1 : 1;
+      const kindOrder = { bill: 0, rent: 1, todo: 2 };
+      return kindOrder[a.kind] - kindOrder[b.kind];
     });
 
     setAttentionItems(merged);
@@ -294,6 +398,54 @@ export default function DashboardPage() {
             </section>
           )}
 
+          {/* --- Rent Collected This Month (T054) --- */}
+          {rentThisMonth && (
+            <section>
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-slate-900">Rent Collected This Month</h2>
+                <p className="text-sm text-slate-500">{currentMonthLabel}</p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-500 mb-1">Expected</p>
+                  <p className="text-2xl font-bold text-slate-900 tabular-nums">
+                    {formatCurrency(rentThisMonth.totalExpected)}
+                  </p>
+                </div>
+                <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-500 mb-1">Received</p>
+                  <p className="text-2xl font-bold text-emerald-700 tabular-nums">
+                    {formatCurrency(rentThisMonth.totalReceived)}
+                  </p>
+                </div>
+                <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-500 mb-1">Outstanding</p>
+                  <p className="text-2xl font-bold text-slate-900 tabular-nums">
+                    {formatCurrency(rentThisMonth.totalOutstanding)}
+                  </p>
+                </div>
+              </div>
+
+              {rentThisMonth.byProperty.length > 0 && (
+                <div className="mt-4 bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <span>Property</span>
+                    <span className="text-right">Expected</span>
+                    <span className="text-right">Received</span>
+                  </div>
+                  {rentThisMonth.byProperty.map(row => (
+                    <div key={row.propertyId} className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-slate-50 last:border-b-0 text-sm">
+                      <span className="text-slate-900 truncate">{row.propertyName}</span>
+                      <span className="text-right text-slate-900 tabular-nums">{formatCurrency(row.expected)}</span>
+                      <span className="text-right text-emerald-700 tabular-nums">{formatCurrency(row.received)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* --- Needs Attention (T016) --- */}
           <section>
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Needs Attention</h2>
@@ -366,6 +518,23 @@ export default function DashboardPage() {
                             )}
                           </div>
                           <p className="text-sm text-slate-500 mt-0.5">{formatDueDate(item.dueDate)}</p>
+                        </div>
+                      </div>
+                    ) : item.kind === 'rent' ? (
+                      <div className="flex items-start gap-3">
+                        <Landmark className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-slate-900">
+                              {item.tenancyName}{item.unitLabel ? ` (${item.unitLabel})` : ''} — {item.propertyName} · {formatMonth(item.month)}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700">
+                              Overdue
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-500 mt-0.5">
+                            {formatCurrency(item.totalReceived)} / {formatCurrency(item.expectedAmount)} received · {formatDueDate(item.dueDate)}
+                          </p>
                         </div>
                       </div>
                     ) : null}
