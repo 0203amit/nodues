@@ -84,7 +84,7 @@ export default function PropertyFormModal({
                          px-3 py-2 text-base
                          focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
                          focus:outline-none"
-              placeholder="e.g. Mira Flat"
+              placeholder="e.g. Property 1"
               autoFocus
             />
             {nameError && (
@@ -103,7 +103,7 @@ export default function PropertyFormModal({
                          px-3 py-2 text-base
                          focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
                          focus:outline-none"
-              placeholder="e.g. 123 Main St, Mumbai"
+              placeholder="e.g. 123 Main St, City"
             />
           </label>
 

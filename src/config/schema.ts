@@ -84,28 +84,6 @@ export const HEADER_DEFINITIONS: HeaderDefinition[] = [
   },
 ];
 
-/** Returns 3 seed property rows: Mira Shop, Mira Flat, Chawl. */
-export function generateSeedProperties(): string[][] {
-  const now = new Date().toISOString();
-  return [
-    [uuidv4(), 'Mira Shop', '', '', 'true', now, ''],
-    [uuidv4(), 'Mira Flat', '', '', 'true', now, ''],
-    [uuidv4(), 'Chawl', '', '', 'true', now, ''],
-  ];
-}
-
-/** Returns 5 seed bill-type rows linked to property UUIDs (FR-007). */
-export function generateSeedBillTypes(propertyIds: Record<string, string>): string[][] {
-  const now = new Date().toISOString();
-  return [
-    [uuidv4(), propertyIds['Mira Shop'], 'Maintenance', '', '5', 'monthly', '3,1', 'true', now, ''],
-    [uuidv4(), propertyIds['Mira Shop'], 'Property Tax', '', '1', 'annual', '30,7,1', 'true', now, ''],
-    [uuidv4(), propertyIds['Mira Flat'], 'Maintenance', '', '5', 'monthly', '3,1', 'true', now, ''],
-    [uuidv4(), propertyIds['Mira Flat'], 'Property Tax', '', '1', 'annual', '30,7,1', 'true', now, ''],
-    [uuidv4(), propertyIds['Chawl'], 'Electricity', '', '15', 'monthly', '5,1', 'true', now, ''],
-  ];
-}
-
 /** Returns 4 seed todo-category rows (FR-008). */
 export function generateSeedTodoCategories(): string[][] {
   return [

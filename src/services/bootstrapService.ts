@@ -5,8 +5,6 @@ import { findCalendar, createCalendar } from './calendarService';
 import {
   TAB_NAMES,
   HEADER_DEFINITIONS,
-  generateSeedProperties,
-  generateSeedBillTypes,
   generateSeedTodoCategories,
   generateSeedRecurrencePatterns,
 } from '../config/schema';
@@ -283,40 +281,6 @@ export async function bootstrap(
   if (!detected.seedDataWritten) {
     onProgress('seed');
     try {
-      // Properties — generate or read existing IDs
-      let propertyIds: Record<string, string> = {};
-
-      const existingProperties = await readValues(
-        accessToken,
-        spreadsheetId,
-        "'Properties'!A2:B",
-      );
-      if (existingProperties?.values?.length) {
-        // Extract { propertyName → propertyId } from existing rows
-        for (const row of existingProperties.values) {
-          if (row[0] && row[1]) {
-            propertyIds[row[1]] = row[0]; // col A = id, col B = name
-          }
-        }
-      } else {
-        const seedProperties = generateSeedProperties();
-        await appendRows(accessToken, spreadsheetId, 'Properties', seedProperties);
-        for (const row of seedProperties) {
-          propertyIds[row[1]] = row[0]; // col 0 = id, col 1 = name
-        }
-      }
-
-      // BillTypes
-      const existingBillTypes = await readValues(
-        accessToken,
-        spreadsheetId,
-        "'BillTypes'!A2:A",
-      );
-      if (!existingBillTypes?.values?.length) {
-        const seedBillTypes = generateSeedBillTypes(propertyIds);
-        await appendRows(accessToken, spreadsheetId, 'BillTypes', seedBillTypes);
-      }
-
       // TodoCategories
       const existingCategories = await readValues(
         accessToken,
