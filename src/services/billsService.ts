@@ -3,12 +3,16 @@ import { HEADER_DEFINITIONS } from '../config/schema';
 import { readAllRows, updateRow, updateCell, appendRows } from './sheetsService';
 import { appendPostponeLog } from './postponeLogService';
 import { serializeEventIds } from './calendarReminders';
+import { computeNextDueDate } from './recurrencePatternsService';
 import type {
   Bill,
   BillDisplayStatus,
   BillFormData,
   BillStatus,
+  BillType,
+  BillTypeWithProperty,
   BillWithDisplay,
+  Frequency,
   MarkPaidFormData,
   RowWithIndex,
 } from '../types';
@@ -119,6 +123,16 @@ export function parseFileIds(csv: string): string[] {
 /** Join an array of file IDs into a comma-separated string. Filters out empty values. */
 export function serializeFileIds(ids: string[]): string {
   return ids.filter(Boolean).join(',');
+}
+
+/** Map a Frequency value to computeNextDueDate interval params. Returns null for one-time. */
+export function frequencyToInterval(freq: Frequency): { intervalValue: number; intervalUnit: string } | null {
+  switch (freq) {
+    case 'monthly':   return { intervalValue: 1, intervalUnit: 'months' };
+    case 'quarterly': return { intervalValue: 3, intervalUnit: 'months' };
+    case 'annual':    return { intervalValue: 1, intervalUnit: 'years' };
+    case 'one-time':  return null;
+  }
 }
 
 // --- Parse / Serialize ---
@@ -419,6 +433,78 @@ export async function setCalendarEventIds(
   };
   await updateRow(accessToken, spreadsheetId, TAB_NAME, bill._rowIndex, serializeRow(updatedBill));
   return updatedBill;
+}
+
+// --- Recurrence ---
+
+/** Create the next bill instance after marking a recurring bill paid. Returns null for one-time or idempotency skip. */
+export async function createNextRecurrenceBill(
+  accessToken: string,
+  spreadsheetId: string,
+  paidBill: Bill,
+  billType: BillType | BillTypeWithProperty,
+  allBills: BillWithDisplay[],
+): Promise<Bill | null> {
+  // 1. Frequency check
+  const interval = frequencyToInterval(billType.frequency);
+  if (!interval) return null;
+
+  // 2. Compute next due date
+  const nextDueDate = paidBill.dueDate
+    ? computeNextDueDate(paidBill.dueDate, interval.intervalValue, interval.intervalUnit, billType.defaultDueDay)
+    : '';
+
+  // 3. Derive month
+  let newMonth: string;
+  if (nextDueDate) {
+    newMonth = nextDueDate.slice(0, 7);
+  } else {
+    // No due date — add interval months to paidBill.month
+    const monthsToAdd = interval.intervalUnit === 'years'
+      ? interval.intervalValue * 12
+      : interval.intervalValue;
+    const [y, m] = paidBill.month.split('-').map(Number);
+    const total = (y * 12 + (m - 1)) + monthsToAdd;
+    const newYear = Math.floor(total / 12);
+    const newMon = (total % 12) + 1;
+    newMonth = `${newYear}-${String(newMon).padStart(2, '0')}`;
+  }
+
+  // 4. Composite key
+  const compositeKey = computeCompositeKey(billType.propertyId, billType.id, newMonth);
+
+  // 5. Idempotency check
+  if (checkDuplicate(compositeKey, allBills)) return null;
+
+  // 6. Build Bill object
+  const now = new Date().toISOString();
+  const bill: Bill = {
+    _rowIndex: -1,
+    id: uuidv4(),
+    billTypeId: paidBill.billTypeId,
+    month: newMonth,
+    amount: billType.defaultAmount,
+    dueDate: nextDueDate,
+    originalDueDate: nextDueDate,
+    status: nextDueDate ? 'pending' : 'not_yet_generated',
+    paidDate: '',
+    paymentMethod: '',
+    transactionRef: '',
+    billFileIds: '',
+    receiptFileIds: '',
+    calendarEventIds: '',
+    notes: '',
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: '',
+    compositeKey,
+  };
+
+  // 7. Persist
+  await appendRows(accessToken, spreadsheetId, TAB_NAME, [serializeRow(bill)]);
+
+  // 8. Return
+  return bill;
 }
 
 // --- Postpone ---

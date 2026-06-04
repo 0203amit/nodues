@@ -20,6 +20,7 @@ import {
   formatCurrency,
   computeDisplayStatus,
   setCalendarEventIds,
+  createNextRecurrenceBill,
 } from '../services/billsService';
 import {
   parseEventIds,
@@ -449,7 +450,7 @@ export default function BillsPage() {
     try {
       const paidBill = await markBillPaid(accessToken!, spreadsheetId, markPaidTarget, data);
 
-      // Calendar cleanup (best-effort)
+      // Calendar cleanup on paid bill (best-effort)
       let calendarFailed = false;
       if (markPaidTarget.calendarEventIds && markPaidTarget.calendarEventIds.trim() !== '') {
         try {
@@ -464,9 +465,7 @@ export default function BillsPage() {
         }
       }
 
-      await refetchBills();
-      setMarkPaidTarget(null);
-
+      // Activity log: bill_paid (before recurrence — never rolled back)
       await appendActivityLogSafe(accessToken!, spreadsheetId, {
         id: uuidv4(),
         timestamp: new Date().toISOString(),
@@ -477,7 +476,39 @@ export default function BillsPage() {
         summary: `${markPaidTarget.billTypeName} — ${markPaidTarget.propertyName} · ${formatMonth(markPaidTarget.month)}${markPaidTarget.amount !== null ? ` · ${formatCurrency(markPaidTarget.amount)}` : ''}`,
       });
 
-      if (!calendarFailed) {
+      // Recurrence: auto-create next bill for recurring bill types
+      let recurrenceHandledToast = false;
+      const billType = billTypes.find(bt => bt.id === markPaidTarget.billTypeId);
+      if (billType && billType.frequency !== 'one-time') {
+        try {
+          const newBill = await createNextRecurrenceBill(
+            accessToken!, spreadsheetId, paidBill, billType, bills,
+          );
+          if (newBill) {
+            // Activity log: bill_added
+            await appendActivityLogSafe(accessToken!, spreadsheetId, {
+              id: uuidv4(),
+              timestamp: new Date().toISOString(),
+              userEmail: 'user',
+              action: 'bill_added',
+              entityType: 'bill',
+              entityId: newBill.id,
+              summary: `Bill auto-created from recurrence: ${markPaidTarget.billTypeName} — ${markPaidTarget.propertyName} ${formatMonth(newBill.month)}`,
+            });
+            showToast(`Next ${markPaidTarget.billTypeName} bill created for ${formatMonth(newBill.month)}.`, 'success');
+            recurrenceHandledToast = true;
+          }
+          // null return = idempotency skip — fall through to default toast
+        } catch {
+          showToast("Bill marked paid, but couldn't auto-create next bill. Try again or add manually.", 'error');
+          recurrenceHandledToast = true;
+        }
+      }
+
+      await refetchBills();
+      setMarkPaidTarget(null);
+
+      if (!recurrenceHandledToast && !calendarFailed) {
         showToast('Bill marked as paid.', 'success');
       }
     } catch {
