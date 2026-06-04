@@ -34,7 +34,11 @@
       "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"daily-push-notifications\" \"Daily push notifications for overdue items\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"rentals\" \"Rentals — tenant + rent collection tracking with monthly auto-generation \\(Phase 16 of NoDues\\)\")",
+      "Bash(git -C /d/Documents/Montivory/Project/NoDues log --oneline --all)",
+      "Bash(git -C /d/Documents/Montivory/Project/NoDues branch:*)",
+      "Bash(git -C /d/Documents/Montivory/Project/NoDues log 016-rentals --oneline)"
     ]
   }
 }
