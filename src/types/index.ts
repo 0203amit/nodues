@@ -482,6 +482,7 @@ export interface PaymentEvent {
   createdAt: string;
   updatedAt: string;
   deletedAt: string;
+  receiptFileId: string;
 }
 
 export interface PaymentEventFormData {

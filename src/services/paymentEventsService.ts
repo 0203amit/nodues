@@ -36,6 +36,7 @@ export function parseRow(row: RowWithIndex): PaymentEvent | null {
     createdAt: v[COL.created_at] ?? '',
     updatedAt: v[COL.updated_at] ?? '',
     deletedAt: v[COL.deleted_at] ?? '',
+    receiptFileId: v[COL.receipt_file_id] ?? '',
   };
 }
 
@@ -50,6 +51,7 @@ export function serializeRow(event: PaymentEvent): string[] {
     event.createdAt,
     event.updatedAt,
     event.deletedAt,
+    event.receiptFileId,
   ];
 }
 
@@ -63,7 +65,7 @@ export async function ensurePaymentEventsTab(
     const result = await readValues(
       accessToken,
       spreadsheetId,
-      `'${TAB_NAME}'!A1:I1`,
+      `'${TAB_NAME}'!A1:J1`,
     );
     if (!result?.values || result.values.length === 0) {
       await writeHeaders(accessToken, spreadsheetId, [TAB_DEF]);
@@ -120,6 +122,7 @@ export async function addPaymentEvent(
     createdAt: now,
     updatedAt: now,
     deletedAt: '',
+    receiptFileId: '',
   };
 
   await appendRows(accessToken, spreadsheetId, TAB_NAME, [serializeRow(event)]);
@@ -141,4 +144,25 @@ export async function undoDeletePaymentEvent(
   event: PaymentEvent,
 ): Promise<void> {
   await updateCell(accessToken, spreadsheetId, TAB_NAME, event._rowIndex, COL.deleted_at, '');
+}
+
+// --- Receipt File ID ---
+
+/** Set the receipt_file_id cell for a payment event. */
+export async function setReceiptFileIdForPaymentEvent(
+  accessToken: string,
+  spreadsheetId: string,
+  event: PaymentEvent,
+  newFileId: string,
+): Promise<void> {
+  await updateCell(accessToken, spreadsheetId, TAB_NAME, event._rowIndex, COL.receipt_file_id, newFileId);
+}
+
+/** Clear the receipt_file_id cell for a payment event. */
+export async function clearReceiptFileIdForPaymentEvent(
+  accessToken: string,
+  spreadsheetId: string,
+  event: PaymentEvent,
+): Promise<void> {
+  await updateCell(accessToken, spreadsheetId, TAB_NAME, event._rowIndex, COL.receipt_file_id, '');
 }

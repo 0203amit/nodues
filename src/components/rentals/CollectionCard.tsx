@@ -1,4 +1,4 @@
-import { Check, ChevronsUp, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronsUp, Paperclip, Pencil, Trash2 } from 'lucide-react';
 import type {
   RentCollectionWithDisplay,
   PaymentEvent,
@@ -17,6 +17,7 @@ export interface CollectionCardProps {
   onEdit: (collection: RentCollectionWithDisplay) => void;
   onDelete: (collection: RentCollectionWithDisplay) => void;
   onDeletePaymentEvent: (event: PaymentEvent) => void;
+  onOpenReceipts: (collection: RentCollectionWithDisplay) => void;
   isLoading: boolean;
 }
 
@@ -39,11 +40,17 @@ export default function CollectionCard({
   onEdit,
   onDelete,
   onDeletePaymentEvent,
+  onOpenReceipts,
   isLoading,
 }: CollectionCardProps) {
   const status = collection.displayStatus;
   const badge = STATUS_CONFIG[status];
   const isReceived = status === 'received';
+
+  // Count non-deleted payment events with a receipt attached
+  const receiptCount = paymentEvents.filter(
+    (e) => e.deletedAt === '' && e.receiptFileId !== '',
+  ).length;
 
   const displayName = tenancy.unitLabel
     ? `${tenancy.name} (${tenancy.unitLabel})`
@@ -150,6 +157,25 @@ export default function CollectionCard({
         >
           <Trash2 className="w-4 h-4" />
           <span className="hidden sm:inline">Delete</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenReceipts(collection)}
+          className="relative text-slate-600 hover:text-slate-800 hover:bg-slate-50
+                     font-medium text-sm px-2 py-1 rounded transition-colors cursor-pointer
+                     min-h-11 min-w-11 inline-flex items-center justify-center gap-1
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          aria-label="Receipts"
+        >
+          <Paperclip className="w-4 h-4" />
+          {receiptCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white
+                             text-[10px] font-semibold rounded-full min-w-4 h-4
+                             inline-flex items-center justify-center px-1">
+              {receiptCount}
+            </span>
+          )}
         </button>
       </div>
 

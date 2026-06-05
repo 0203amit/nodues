@@ -55,6 +55,35 @@ export async function createFolder(
   );
 }
 
+/** Ensure a subfolder exists inside a parent folder. Creates it if missing. Returns folder ID. */
+export async function ensureSubfolder(
+  accessToken: string,
+  parentFolderId: string,
+  folderName: string,
+): Promise<string> {
+  const q = `name='${folderName}' and '${parentFolderId}' in parents and mimeType='${FOLDER_MIME}' and trashed=false`;
+  const url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(FILE_FIELDS)}`;
+
+  const result = await withRetry(() =>
+    googleApiFetch<{ files: DriveFile[] }>(accessToken, url),
+  );
+
+  if (result.files[0]) return result.files[0].id;
+
+  const created = await withRetry(() =>
+    googleApiFetch<DriveFile>(accessToken, `${DRIVE_API}/files`, {
+      method: 'POST',
+      body: {
+        name: folderName,
+        mimeType: FOLDER_MIME,
+        parents: [parentFolderId],
+      },
+    }),
+  );
+
+  return created.id;
+}
+
 /** Search for a Sheet by name inside a specific folder. */
 export async function findSheetInFolder(
   accessToken: string,

@@ -46,6 +46,7 @@ import RentSummaryHeader from '../components/rentals/RentSummaryHeader';
 import CollectionCard from '../components/rentals/CollectionCard';
 import MarkReceivedFullModal from '../components/rentals/MarkReceivedFullModal';
 import MarkReceivedPartialModal from '../components/rentals/MarkReceivedPartialModal';
+import RentReceiptsModal from '../components/rentals/RentReceiptsModal';
 
 // --- Helpers ---
 
@@ -107,6 +108,8 @@ export default function RentalsPage() {
   const [markReceivedPartialTarget, setMarkReceivedPartialTarget] =
     useState<RentCollectionWithDisplay | null>(null);
   const [editCollectionTarget, setEditCollectionTarget] =
+    useState<RentCollectionWithDisplay | null>(null);
+  const [receiptsModalTarget, setReceiptsModalTarget] =
     useState<RentCollectionWithDisplay | null>(null);
 
   // Edit collection form state
@@ -888,6 +891,7 @@ export default function RentalsPage() {
                                   onEdit={openEditCollection}
                                   onDelete={handleDeleteCollection}
                                   onDeletePaymentEvent={handleDeletePaymentEvent}
+                                  onOpenReceipts={setReceiptsModalTarget}
                                   isLoading={isSaving}
                                 />
                               );
@@ -976,6 +980,7 @@ export default function RentalsPage() {
                           onEdit={openEditCollection}
                           onDelete={handleDeleteCollection}
                           onDeletePaymentEvent={handleDeletePaymentEvent}
+                          onOpenReceipts={setReceiptsModalTarget}
                           isLoading={isSaving}
                         />
                       ))}
@@ -1140,6 +1145,16 @@ export default function RentalsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Rent Receipts Modal */}
+      {receiptsModalTarget && (
+        <RentReceiptsModal
+          collection={receiptsModalTarget}
+          paymentEvents={paymentEventsByCollection.get(receiptsModalTarget.id) ?? []}
+          onClose={() => setReceiptsModalTarget(null)}
+          onUpdate={() => loadData()}
+        />
       )}
     </div>
   );

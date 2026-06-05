@@ -98,7 +98,7 @@ export const HEADER_DEFINITIONS: HeaderDefinition[] = [
     tabName: 'PaymentEvents',
     headers: [
       'id', 'collection_id', 'amount', 'payment_date', 'payment_method',
-      'notes', 'created_at', 'updated_at', 'deleted_at',
+      'notes', 'created_at', 'updated_at', 'deleted_at', 'receipt_file_id',
     ],
   },
   {
