@@ -96,6 +96,8 @@ export default function RentalsPage() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [filterProperty, setFilterProperty] = useState<string>('all');
   const [tenanciesExpanded, setTenanciesExpanded] = useState(false);
+  const [receivedExpanded, setReceivedExpanded] = useState(false);
+  const [receivedMonth, setReceivedMonth] = useState<string | null>(null);
 
   // Modal targets
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -238,6 +240,52 @@ export default function RentalsPage() {
     return result;
   }, [collections, selectedMonth, tenancyMap, paymentEventsByCollection]);
 
+  // --- Received collections across ALL months (Phase 16.3) ---
+  const allReceivedData = useMemo(() => {
+    const today = getISTToday();
+    const byMonth = new Map<string, RentCollectionWithDisplay[]>();
+
+    for (const coll of collections) {
+      if (coll.deletedAt !== '') continue;
+
+      const tenancy = tenancyMap.get(coll.tenancyId);
+      if (!tenancy) continue;
+
+      const events = paymentEventsByCollection.get(coll.id) ?? [];
+      const totalReceived = events.reduce((sum, e) => sum + e.amount, 0);
+      const remainingBalance = Math.max(0, coll.expectedAmount - totalReceived);
+      const displayStatus = computeRentStatus(
+        coll.expectedAmount,
+        totalReceived,
+        coll.month,
+        today,
+      );
+
+      if (displayStatus !== 'received') continue;
+
+      const enriched: RentCollectionWithDisplay = {
+        ...coll,
+        tenancyName: tenancy.name,
+        unitLabel: tenancy.unitLabel,
+        propertyId: tenancy.propertyId,
+        propertyName: tenancy.propertyName,
+        totalReceived,
+        remainingBalance,
+        displayStatus,
+      };
+
+      let arr = byMonth.get(coll.month);
+      if (!arr) {
+        arr = [];
+        byMonth.set(coll.month, arr);
+      }
+      arr.push(enriched);
+    }
+
+    const months = Array.from(byMonth.keys()).sort((a, b) => b.localeCompare(a));
+    return { byMonth, months, defaultMonth: months[0] ?? null };
+  }, [collections, tenancyMap, paymentEventsByCollection]);
+
   // --- Collections grouped by tenancy for rendering ---
   const collectionsByTenancy = useMemo(() => {
     const map = new Map<string, RentCollectionWithDisplay[]>();
@@ -251,6 +299,30 @@ export default function RentalsPage() {
     }
     return map;
   }, [enrichedCollections]);
+
+  // --- Received section: effective month + grouped by property ---
+  const effectiveReceivedMonth = receivedMonth ?? allReceivedData.defaultMonth;
+
+  const receivedForMonth = useMemo(() => {
+    if (!effectiveReceivedMonth) return [];
+    return allReceivedData.byMonth.get(effectiveReceivedMonth) ?? [];
+  }, [effectiveReceivedMonth, allReceivedData]);
+
+  const receivedByProperty = useMemo(() => {
+    const groups = new Map<
+      string,
+      { propertyId: string; propertyName: string; collections: RentCollectionWithDisplay[] }
+    >();
+    for (const coll of receivedForMonth) {
+      let group = groups.get(coll.propertyId);
+      if (!group) {
+        group = { propertyId: coll.propertyId, propertyName: coll.propertyName, collections: [] };
+        groups.set(coll.propertyId, group);
+      }
+      group.collections.push(coll);
+    }
+    return Array.from(groups.values());
+  }, [receivedForMonth]);
 
   // --- Summary header totals (T030) ---
   const summaryTotals = useMemo(() => {
@@ -737,6 +809,101 @@ export default function RentalsPage() {
         </div>
       )}
 
+      {/* Collapsible Received section (Phase 16.3) */}
+      {!isLoading && (
+        <div className="border border-slate-200 rounded-lg mb-4">
+          <button
+            type="button"
+            onClick={() => setReceivedExpanded(!receivedExpanded)}
+            className="w-full flex items-center gap-2 px-4 py-3 text-left cursor-pointer
+                       hover:bg-slate-50 transition-colors rounded-lg
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            {receivedExpanded ? (
+              <ChevronDown className="w-4 h-4 text-slate-500" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            )}
+            <span className="text-base font-semibold text-slate-900">
+              Received ({receivedForMonth.length})
+            </span>
+          </button>
+
+          {receivedExpanded && (
+            <div className="px-4 pb-4">
+              {allReceivedData.months.length === 0 ? (
+                <p className="text-sm text-slate-500 py-2">
+                  No received collections yet.
+                </p>
+              ) : (
+                <>
+                  {/* Month dropdown */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <label
+                      htmlFor="received-month-select"
+                      className="text-sm font-medium text-slate-700"
+                    >
+                      Month:
+                    </label>
+                    <select
+                      id="received-month-select"
+                      value={effectiveReceivedMonth ?? ''}
+                      onChange={(e) => setReceivedMonth(e.target.value)}
+                      className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-base
+                                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                                 focus:outline-none cursor-pointer"
+                    >
+                      {allReceivedData.months.map((m) => (
+                        <option key={m} value={m}>
+                          {formatMonth(m)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Grouped received collection cards */}
+                  {receivedForMonth.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-2">
+                      No received collections for {formatMonth(effectiveReceivedMonth!)}.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      {receivedByProperty.map((group) => (
+                        <div key={group.propertyId}>
+                          <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                            {group.propertyName}
+                          </h3>
+                          <div className="flex flex-col gap-2">
+                            {group.collections.map((coll) => {
+                              const tenancy = tenancyMap.get(coll.tenancyId);
+                              if (!tenancy) return null;
+                              return (
+                                <CollectionCard
+                                  key={coll.id}
+                                  collection={coll}
+                                  paymentEvents={paymentEventsByCollection.get(coll.id) ?? []}
+                                  tenancy={tenancy}
+                                  onMarkReceivedFull={setMarkReceivedFullTarget}
+                                  onMarkReceivedPartial={setMarkReceivedPartialTarget}
+                                  onEdit={openEditCollection}
+                                  onDelete={handleDeleteCollection}
+                                  onDeletePaymentEvent={handleDeletePaymentEvent}
+                                  isLoading={isSaving}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Month navigator (T029) */}
       {!isLoading && tenancies.length > 0 && (
         <div className="mb-4">
@@ -789,12 +956,16 @@ export default function RentalsPage() {
               </h2>
               <div className="flex flex-col gap-3">
                 {group.tenancies.map((tenancy) => {
-                  const tenancyCollections = collectionsByTenancy.get(tenancy.id) ?? [];
+                  const allTenancyColls = collectionsByTenancy.get(tenancy.id) ?? [];
+                  const activeColls = allTenancyColls.filter(
+                    (c) => c.displayStatus !== 'received',
+                  );
+                  const hasAnyCollection = allTenancyColls.length > 0;
 
                   return (
                     <div key={tenancy.id} className="flex flex-col gap-2">
-                      {/* Collection cards for this tenancy in selected month */}
-                      {tenancyCollections.map((coll) => (
+                      {/* Active collection cards (pending/partial/overdue) */}
+                      {activeColls.map((coll) => (
                         <CollectionCard
                           key={coll.id}
                           collection={coll}
@@ -809,8 +980,15 @@ export default function RentalsPage() {
                         />
                       ))}
 
-                      {/* No collection for this month */}
-                      {tenancyCollections.length === 0 && (
+                      {/* All collections received for this month */}
+                      {activeColls.length === 0 && hasAnyCollection && (
+                        <p className="text-sm text-slate-500 ml-8">
+                          All received for {formatMonth(selectedMonth)}.
+                        </p>
+                      )}
+
+                      {/* No collection record at all */}
+                      {!hasAnyCollection && (
                         <p className="text-sm text-slate-500 ml-8">
                           No collection record for {formatMonth(selectedMonth)}.
                         </p>
