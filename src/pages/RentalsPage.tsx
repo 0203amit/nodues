@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Landmark, Loader2 } from 'lucide-react';
+import { Plus, Landmark, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../contexts/AuthContext';
 import { useBootstrap } from '../contexts/BootstrapContext';
@@ -46,7 +46,6 @@ import RentSummaryHeader from '../components/rentals/RentSummaryHeader';
 import CollectionCard from '../components/rentals/CollectionCard';
 import MarkReceivedFullModal from '../components/rentals/MarkReceivedFullModal';
 import MarkReceivedPartialModal from '../components/rentals/MarkReceivedPartialModal';
-import CollectionHistorySection from '../components/rentals/CollectionHistorySection';
 
 // --- Helpers ---
 
@@ -96,6 +95,7 @@ export default function RentalsPage() {
   const [paymentEvents, setPaymentEvents] = useState<PaymentEvent[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [filterProperty, setFilterProperty] = useState<string>('all');
+  const [tenanciesExpanded, setTenanciesExpanded] = useState(false);
 
   // Modal targets
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -252,56 +252,6 @@ export default function RentalsPage() {
     return map;
   }, [enrichedCollections]);
 
-  // --- Past collections for history (T043) ---
-  const pastCollectionsByTenancy = useMemo(() => {
-    const today = getISTToday();
-    const map = new Map<string, RentCollectionWithDisplay[]>();
-
-    for (const coll of collections) {
-      if (coll.deletedAt !== '') continue;
-      if (coll.month >= selectedMonth) continue;
-
-      const tenancy = tenancyMap.get(coll.tenancyId);
-      if (!tenancy) continue;
-
-      const events = paymentEventsByCollection.get(coll.id) ?? [];
-      const totalReceived = events.reduce((sum, e) => sum + e.amount, 0);
-      const remainingBalance = Math.max(0, coll.expectedAmount - totalReceived);
-      const displayStatus = computeRentStatus(
-        coll.expectedAmount,
-        totalReceived,
-        coll.month,
-        today,
-      );
-
-      const enriched: RentCollectionWithDisplay = {
-        ...coll,
-        tenancyName: tenancy.name,
-        unitLabel: tenancy.unitLabel,
-        propertyId: tenancy.propertyId,
-        propertyName: tenancy.propertyName,
-        totalReceived,
-        remainingBalance,
-        displayStatus,
-      };
-
-      let arr = map.get(coll.tenancyId);
-      if (!arr) {
-        arr = [];
-        map.set(coll.tenancyId, arr);
-      }
-      arr.push(enriched);
-    }
-
-    // Sort newest first and limit to 6 per tenancy
-    for (const [key, arr] of map) {
-      arr.sort((a, b) => b.month.localeCompare(a.month));
-      map.set(key, arr.slice(0, 6));
-    }
-
-    return map;
-  }, [collections, selectedMonth, tenancyMap, paymentEventsByCollection]);
-
   // --- Summary header totals (T030) ---
   const summaryTotals = useMemo(() => {
     let totalExpected = 0;
@@ -387,6 +337,7 @@ export default function RentalsPage() {
       });
       await loadData();
       setAddModalOpen(false);
+      setTenanciesExpanded(true);
       showToast('Tenant added.', 'success');
     } catch {
       showToast('Failed to add tenant.', 'error');
@@ -710,6 +661,82 @@ export default function RentalsPage() {
         </div>
       )}
 
+      {/* Collapsible Tenancies section */}
+      {!isLoading && (
+        <div className="border border-slate-200 rounded-lg mb-4">
+          <button
+            type="button"
+            onClick={() => setTenanciesExpanded(!tenanciesExpanded)}
+            className="w-full flex items-center gap-2 px-4 py-3 text-left cursor-pointer
+                       hover:bg-slate-50 transition-colors rounded-lg
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            {tenanciesExpanded ? (
+              <ChevronDown className="w-4 h-4 text-slate-500" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            )}
+            <span className="text-base font-semibold text-slate-900">
+              Tenancies ({tenancies.length})
+            </span>
+          </button>
+
+          {tenanciesExpanded && (
+            <div className="px-4 pb-4">
+              {tenancies.length === 0 ? (
+                <div className="text-center py-8 px-4">
+                  <div className="flex justify-center mb-3">
+                    <Landmark className="w-12 h-12 text-slate-400" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900 mb-1">
+                    No tenants yet
+                  </h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Add a tenant to start tracking rent collection.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAddModalOpen(true)}
+                    className="bg-indigo-700 hover:bg-indigo-800 text-white font-medium px-4 py-2 rounded-lg
+                               transition-colors cursor-pointer min-h-11 inline-flex items-center gap-2 mx-auto
+                               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Tenancy
+                  </button>
+                </div>
+              ) : groupedByProperty.length === 0 ? (
+                <p className="text-sm text-slate-500 py-2">
+                  No tenancies for this property filter.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {groupedByProperty.map((group) => (
+                    <div key={group.propertyId}>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                        {group.propertyName}
+                      </h3>
+                      <div className="flex flex-col gap-2">
+                        {group.tenancies.map((tenancy) => (
+                          <TenancyCard
+                            key={tenancy.id}
+                            tenancy={tenancy}
+                            onEdit={(t) => setEditTarget(t)}
+                            onToggle={handleToggleTenancy}
+                            onDelete={handleDeleteTenancy}
+                            isLoading={isSaving}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Month navigator (T029) */}
       {!isLoading && tenancies.length > 0 && (
         <div className="mb-4">
@@ -737,31 +764,6 @@ export default function RentalsPage() {
         </div>
       )}
 
-      {/* Empty state — no tenancies at all (T026) */}
-      {!isLoading && tenancies.length === 0 && (
-        <div className="text-center py-12 px-4">
-          <div className="flex justify-center mb-3">
-            <Landmark className="w-12 h-12 text-slate-400" />
-          </div>
-          <h3 className="text-base font-semibold text-slate-900 mb-1">
-            No tenants yet
-          </h3>
-          <p className="text-sm text-slate-600 mb-4">
-            Add a tenant to start tracking rent collection.
-          </p>
-          <button
-            type="button"
-            onClick={() => setAddModalOpen(true)}
-            className="bg-indigo-700 hover:bg-indigo-800 text-white font-medium px-4 py-2 rounded-lg
-                       transition-colors cursor-pointer min-h-11 inline-flex items-center gap-2 mx-auto
-                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Tenancy
-          </button>
-        </div>
-      )}
-
       {/* Empty state — filter active but no matches */}
       {!isLoading && tenancies.length > 0 && groupedByProperty.length === 0 && (
         <div className="text-center py-12 px-4">
@@ -777,7 +779,7 @@ export default function RentalsPage() {
         </div>
       )}
 
-      {/* Tenancy list grouped by property (T020 + T032 collections) */}
+      {/* Collections grouped by property (T032) */}
       {!isLoading && groupedByProperty.length > 0 && (
         <div className="flex flex-col gap-6">
           {groupedByProperty.map((group) => (
@@ -788,18 +790,9 @@ export default function RentalsPage() {
               <div className="flex flex-col gap-3">
                 {group.tenancies.map((tenancy) => {
                   const tenancyCollections = collectionsByTenancy.get(tenancy.id) ?? [];
-                  const pastColls = pastCollectionsByTenancy.get(tenancy.id) ?? [];
 
                   return (
                     <div key={tenancy.id} className="flex flex-col gap-2">
-                      <TenancyCard
-                        tenancy={tenancy}
-                        onEdit={(t) => setEditTarget(t)}
-                        onToggle={handleToggleTenancy}
-                        onDelete={handleDeleteTenancy}
-                        isLoading={isSaving}
-                      />
-
                       {/* Collection cards for this tenancy in selected month */}
                       {tenancyCollections.map((coll) => (
                         <CollectionCard
@@ -821,13 +814,6 @@ export default function RentalsPage() {
                         <p className="text-sm text-slate-500 ml-8">
                           No collection record for {formatMonth(selectedMonth)}.
                         </p>
-                      )}
-
-                      {/* Collection history (T043) */}
-                      {pastColls.length > 0 && (
-                        <div className="ml-8">
-                          <CollectionHistorySection collections={pastColls} />
-                        </div>
                       )}
                     </div>
                   );
