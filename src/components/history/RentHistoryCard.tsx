@@ -11,14 +11,20 @@ const STATUS_CONFIG: Record<
   overdue: { label: 'Overdue', bg: 'bg-red-50', text: 'text-red-700' },
 };
 
-export default function RentHistoryCard({ collection }: { collection: RentCollectionWithDisplay }) {
+export default function RentHistoryCard({ collection, onClick }: { collection: RentCollectionWithDisplay; onClick: () => void }) {
   const badge = STATUS_CONFIG[collection.displayStatus];
   const displayName = collection.unitLabel
     ? `${collection.tenancyName} (${collection.unitLabel})`
     : collection.tenancyName;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4">
+    <div
+      className="bg-white border border-slate-200 rounded-lg p-4 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+    >
       {/* Header: name + property/month + status badge */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

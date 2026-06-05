@@ -12,6 +12,8 @@ import { fetchPaymentEvents } from '../services/paymentEventsService';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 import BillHistoryCard from '../components/history/BillHistoryCard';
 import RentHistoryCard from '../components/history/RentHistoryCard';
+import BillDetailModal from '../components/history/BillDetailModal';
+import RentDetailModal from '../components/history/RentDetailModal';
 import type {
   Property,
   BillWithDisplay,
@@ -112,6 +114,10 @@ export default function HistoryPage() {
 
   // Active tab
   const [activeTab, setActiveTab] = useState<'bills' | 'rents'>('bills');
+
+  // Detail modal state
+  const [selectedBill, setSelectedBill] = useState<BillWithDisplay | null>(null);
+  const [selectedRent, setSelectedRent] = useState<RentCollectionWithDisplay | null>(null);
 
   // --- Document title ---
   useEffect(() => {
@@ -437,7 +443,7 @@ export default function HistoryPage() {
 
           <div className="flex flex-col gap-3">
             {filteredBills.map(bill => (
-              <BillHistoryCard key={bill.id} bill={bill} />
+              <BillHistoryCard key={bill.id} bill={bill} onClick={() => setSelectedBill(bill)} />
             ))}
           </div>
         </div>
@@ -465,10 +471,23 @@ export default function HistoryPage() {
 
           <div className="flex flex-col gap-3">
             {filteredRentData.map(coll => (
-              <RentHistoryCard key={coll.id} collection={coll} />
+              <RentHistoryCard key={coll.id} collection={coll} onClick={() => setSelectedRent(coll)} />
             ))}
           </div>
         </div>
+      )}
+
+      {/* Detail modals */}
+      {selectedBill && (
+        <BillDetailModal bill={selectedBill} onClose={() => setSelectedBill(null)} />
+      )}
+
+      {selectedRent && (
+        <RentDetailModal
+          collection={selectedRent}
+          paymentEvents={allPaymentEvents.filter(pe => pe.collectionId === selectedRent.id)}
+          onClose={() => setSelectedRent(null)}
+        />
       )}
     </div>
   );
