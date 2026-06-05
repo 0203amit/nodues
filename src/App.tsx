@@ -15,6 +15,7 @@ import CategoriesPage from "./pages/CategoriesPage";
 import ActivityLogPage from "./pages/ActivityLogPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import RentalsPage from "./pages/RentalsPage";
+import HistoryPage from "./pages/HistoryPage";
 
 function BootstrapLayout() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/bills" element={<ProtectedRoute><BillsPage /></ProtectedRoute>} />
             <Route path="/todos" element={<ProtectedRoute><TodosPage /></ProtectedRoute>} />
             <Route path="/rentals" element={<ProtectedRoute><RentalsPage /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/settings/properties" element={<ProtectedRoute><PropertiesPage /></ProtectedRoute>} />
             <Route path="/settings/bill-types" element={<ProtectedRoute><BillTypesPage /></ProtectedRoute>} />

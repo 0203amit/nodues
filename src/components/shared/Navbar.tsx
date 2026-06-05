@@ -5,6 +5,7 @@ import {
   Receipt,
   ListTodo,
   Landmark,
+  History,
   Settings,
   Menu,
   X,
@@ -18,6 +19,7 @@ const navItems = [
   { to: "/bills", label: "Bills", Icon: Receipt },
   { to: "/todos", label: "To-Dos", Icon: ListTodo },
   { to: "/rentals", label: "Rentals", Icon: Landmark },
+  { to: "/history", label: "History", Icon: History },
   { to: "/settings", label: "Settings", Icon: Settings },
 ];
 
