@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import type { PostponeFormData } from '../../types';
-import { formatDueDate } from '../../services/calendarReminders';
+import { formatDateDisplay } from '../../services/billsService';
 
 export interface PostponeModalProps {
   title: string;
@@ -110,7 +110,7 @@ export default function PostponeModal({
               Current due date
             </span>
             <p className="mt-1 text-base text-slate-900">
-              {formatDueDate(currentDueDate)}
+              {formatDateDisplay(currentDueDate)}
             </p>
           </div>
 

@@ -99,6 +99,14 @@ const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+/** Convert "YYYY-MM-DD" (or full ISO timestamp) to "DD/MM/YYYY" for display. Empty/invalid input passes through. */
+export function formatDateDisplay(iso: string): string {
+  if (!iso) return '';
+  if (!/^\d{4}/.test(iso)) return iso;
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return `${day}/${month}/${year}`;
+}
+
 /** Format "2026-06" as "Jun 2026". */
 export function formatMonth(month: string): string {
   const [year, mon] = month.split('-').map(Number);

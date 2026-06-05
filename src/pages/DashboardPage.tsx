@@ -6,7 +6,7 @@ import { useBootstrap } from '../contexts/BootstrapContext';
 import { useToast } from '../contexts/ToastContext';
 import { fetchProperties } from '../services/propertiesService';
 import { fetchBillTypes } from '../services/billTypesService';
-import { fetchBills, formatCurrency, formatMonth } from '../services/billsService';
+import { fetchBills, formatCurrency, formatMonth, formatDateDisplay } from '../services/billsService';
 import { fetchTodos } from '../services/todosService';
 import { fetchAllCategories } from '../services/todoCategoriesService';
 import { fetchRecurrencePatterns } from '../services/recurrencePatternsService';
@@ -14,7 +14,6 @@ import { fetchActivityLog } from '../services/activityLogService';
 import { fetchTenancies } from '../services/tenanciesService';
 import { fetchRentCollections, computeRentStatus } from '../services/rentCollectionsService';
 import { fetchPaymentEvents } from '../services/paymentEventsService';
-import { formatDueDate } from '../services/calendarReminders';
 import ActivityRow from '../components/shared/ActivityRow';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 import type {
@@ -493,7 +492,7 @@ export default function DashboardPage() {
                               Overdue
                             </span>
                           </div>
-                          <p className="text-sm text-slate-500 mt-0.5">{formatDueDate(item.dueDate)}</p>
+                          <p className="text-sm text-slate-500 mt-0.5">{formatDateDisplay(item.dueDate)}</p>
                         </div>
                       </div>
                     ) : item.kind === 'todo' ? (
@@ -517,7 +516,7 @@ export default function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-slate-500 mt-0.5">{formatDueDate(item.dueDate)}</p>
+                          <p className="text-sm text-slate-500 mt-0.5">{formatDateDisplay(item.dueDate)}</p>
                         </div>
                       </div>
                     ) : item.kind === 'rent' ? (
@@ -533,7 +532,7 @@ export default function DashboardPage() {
                             </span>
                           </div>
                           <p className="text-sm text-slate-500 mt-0.5">
-                            {formatCurrency(item.totalReceived)} / {formatCurrency(item.expectedAmount)} received · {formatDueDate(item.dueDate)}
+                            {formatCurrency(item.totalReceived)} / {formatCurrency(item.expectedAmount)} received · {formatDateDisplay(item.dueDate)}
                           </p>
                         </div>
                       </div>

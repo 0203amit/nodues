@@ -5,7 +5,7 @@ import type {
   TenancyWithDisplay,
   RentDisplayStatus,
 } from '../../types';
-import { formatCurrency } from '../../services/billsService';
+import { formatCurrency, formatDateDisplay } from '../../services/billsService';
 import PaymentHistorySection from './PaymentHistorySection';
 
 export interface CollectionCardProps {
@@ -55,7 +55,7 @@ export default function CollectionCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold text-slate-900 truncate">{displayName}</p>
-          <p className="text-sm text-slate-500">Due: {collection.dueDate}</p>
+          <p className="text-sm text-slate-500">Due: {formatDateDisplay(collection.dueDate)}</p>
         </div>
         <span
           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import type { PaymentEvent } from '../../types';
-import { formatCurrency } from '../../services/billsService';
+import { formatCurrency, formatDateDisplay } from '../../services/billsService';
 
 export interface PaymentHistorySectionProps {
   paymentEvents: PaymentEvent[];
@@ -61,7 +61,7 @@ export default function PaymentHistorySection({
                   {formatCurrency(event.amount)}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {event.paymentDate} &middot; {event.paymentMethod}
+                  {formatDateDisplay(event.paymentDate)} &middot; {event.paymentMethod}
                   {event.notes ? ` \u2014 ${event.notes}` : ''}
                 </p>
               </div>

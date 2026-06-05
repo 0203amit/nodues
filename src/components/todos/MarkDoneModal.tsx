@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import type { MarkDoneFormData, TodoWithDisplay } from '../../types';
-import { formatDueDate } from '../../services/calendarReminders';
+import { formatDateDisplay } from '../../services/billsService';
 
 export interface MarkDoneModalProps {
   todo: TodoWithDisplay;
@@ -39,7 +39,7 @@ export default function MarkDoneModal({
   // Build context line: categoryName · formatted due date
   const contextParts = [
     todo.categoryName,
-    todo.dueDate ? formatDueDate(todo.dueDate) : '',
+    todo.dueDate ? formatDateDisplay(todo.dueDate) : '',
   ].filter(Boolean);
   const contextLine = contextParts.join(' \u00b7 ');
 

@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { ListTodo, Pencil, CheckCircle2, CalendarClock, Trash2, Bell } from 'lucide-react';
 import type { TodoWithDisplay } from '../../types';
-import { formatDueDate } from '../../services/calendarReminders';
+import { formatDateDisplay } from '../../services/billsService';
 import TodoStatusBadge from '../shared/TodoStatusBadge';
 
 export interface TodoCardProps {
@@ -60,7 +60,7 @@ const TodoCard = forwardRef<HTMLDivElement, TodoCardProps>(function TodoCard(
         )}
         {todo.dueDate && (
           <span className="text-xs text-slate-600">
-            {formatDueDate(todo.dueDate)}
+            {formatDateDisplay(todo.dueDate)}
           </span>
         )}
         {todo.calendarEventIds && todo.calendarEventIds.trim() !== '' && (
