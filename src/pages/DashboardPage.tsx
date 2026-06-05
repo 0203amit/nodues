@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Loader2, RotateCw, Receipt, ListTodo, Landmark, CheckCircle2, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,7 +17,6 @@ import { fetchPaymentEvents } from '../services/paymentEventsService';
 import ActivityRow from '../components/shared/ActivityRow';
 import { APP_TITLE_SUFFIX } from '../config/branding';
 import type {
-  MoneyThisMonth,
   AttentionItem,
   ActivityLogEntry,
   PropertyMoneySummary,
@@ -29,6 +28,72 @@ import type {
   PaymentEvent,
 } from '../types';
 
+// --- Date filter helpers ---
+
+const DATE_PRESET_OPTIONS = [
+  { value: 'current_month', label: 'Current Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'last_year', label: 'Last Year' },
+  { value: 'custom', label: 'Custom Range' },
+] as const;
+
+function getCurrentMonthIST(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+}
+
+function shiftMonthBy(baseMonth: string, offset: number): string {
+  const [y, m] = baseMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getMonthRange(
+  preset: string,
+  customStart: string,
+  customEnd: string,
+): { startMonth: string; endMonth: string } {
+  const currentMonth = getCurrentMonthIST();
+
+  if (preset === 'custom') {
+    return {
+      startMonth: customStart || currentMonth,
+      endMonth: customEnd || currentMonth,
+    };
+  }
+
+  switch (preset) {
+    case 'last_month': {
+      const m = shiftMonthBy(currentMonth, -1);
+      return { startMonth: m, endMonth: m };
+    }
+    case 'last_3_months':
+      return { startMonth: shiftMonthBy(currentMonth, -2), endMonth: currentMonth };
+    case 'last_6_months':
+      return { startMonth: shiftMonthBy(currentMonth, -5), endMonth: currentMonth };
+    case 'last_year':
+      return { startMonth: shiftMonthBy(currentMonth, -11), endMonth: currentMonth };
+    default: // 'current_month'
+      return { startMonth: currentMonth, endMonth: currentMonth };
+  }
+}
+
+function formatMonthRange(startMonth: string, endMonth: string): string {
+  if (startMonth === endMonth) return formatMonth(startMonth);
+  const [sy] = startMonth.split('-');
+  const [ey] = endMonth.split('-');
+  if (sy === ey) {
+    const startLabel = formatMonth(startMonth).split(' ')[0];
+    return `${startLabel} \u2013 ${formatMonth(endMonth)}`;
+  }
+  return `${formatMonth(startMonth)} \u2013 ${formatMonth(endMonth)}`;
+}
+
+function isMonthInRange(month: string, startMonth: string, endMonth: string): boolean {
+  return month >= startMonth && month <= endMonth;
+}
+
 export default function DashboardPage() {
   const { accessToken } = useAuth();
   const { setupResult } = useBootstrap();
@@ -39,16 +104,28 @@ export default function DashboardPage() {
   // --- State ---
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [moneyThisMonth, setMoneyThisMonth] = useState<MoneyThisMonth | null>(null);
-  const [rentThisMonth, setRentThisMonth] = useState<{
-    totalExpected: number;
-    totalReceived: number;
-    totalOutstanding: number;
-    byProperty: { propertyId: string; propertyName: string; expected: number; received: number }[];
-  } | null>(null);
   const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityLogEntry[]>([]);
   const lastFetchAt = useRef<number>(0);
+
+  // Raw data for client-side filtering
+  const [allBills, setAllBills] = useState<BillWithDisplay[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
+  const [allTenancies, setAllTenancies] = useState<TenancyWithDisplay[]>([]);
+  const [allRentCollections, setAllRentCollections] = useState<RentCollection[]>([]);
+  const [allPaymentEvents, setAllPaymentEvents] = useState<PaymentEvent[]>([]);
+
+  // Bills filter state
+  const [billsDatePreset, setBillsDatePreset] = useState('current_month');
+  const [billsCustomStart, setBillsCustomStart] = useState('');
+  const [billsCustomEnd, setBillsCustomEnd] = useState('');
+  const [billsPropertyFilter, setBillsPropertyFilter] = useState('all');
+
+  // Rents filter state
+  const [rentsDatePreset, setRentsDatePreset] = useState('current_month');
+  const [rentsCustomStart, setRentsCustomStart] = useState('');
+  const [rentsCustomEnd, setRentsCustomEnd] = useState('');
+  const [rentsPropertyFilter, setRentsPropertyFilter] = useState('all');
 
   // --- Document title ---
   useEffect(() => {
@@ -133,49 +210,17 @@ export default function DashboardPage() {
       ]);
     } catch { /* tabs may not exist yet */ }
 
-    // --- Compute Money This Month (T015) ---
+    // --- Store raw data for client-side filtering ---
+    setAllBills(bills);
+    setAllProperties(properties);
+    setAllTenancies(tenancies);
+    setAllRentCollections(rentCollections);
+    setAllPaymentEvents(paymentEvents);
+
+    // --- Compute Attention Items (T016) ---
     const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    const currentMonth = todayIST.slice(0, 7);
-    const currentMonthBills = bills.filter(b => b.month === currentMonth);
 
-    const outstanding = currentMonthBills
-      .filter(b => (b.displayStatus === 'pending' || b.displayStatus === 'overdue') && b.amount !== null)
-      .reduce((sum, b) => sum + b.amount!, 0);
-
-    const paid = currentMonthBills
-      .filter(b => b.status === 'paid' && b.amount !== null)
-      .reduce((sum, b) => sum + b.amount!, 0);
-
-    // Per-property breakdown
-    const propertyGroups = new Map<string, BillWithDisplay[]>();
-    for (const bill of currentMonthBills) {
-      const group = propertyGroups.get(bill.propertyId) ?? [];
-      group.push(bill);
-      propertyGroups.set(bill.propertyId, group);
-    }
-
-    const byProperty: PropertyMoneySummary[] = [];
-    for (const [propertyId, group] of propertyGroups) {
-      const propOutstanding = group
-        .filter(b => (b.displayStatus === 'pending' || b.displayStatus === 'overdue') && b.amount !== null)
-        .reduce((sum, b) => sum + b.amount!, 0);
-      const propPaid = group
-        .filter(b => b.status === 'paid' && b.amount !== null)
-        .reduce((sum, b) => sum + b.amount!, 0);
-      if (propOutstanding === 0 && propPaid === 0) continue;
-      const prop = properties.find(p => p.id === propertyId);
-      byProperty.push({
-        propertyId,
-        propertyName: prop?.name ?? 'Unknown',
-        outstanding: propOutstanding,
-        paid: propPaid,
-      });
-    }
-
-    setMoneyThisMonth({ outstanding, paid, byProperty });
-
-    // --- Compute Rent Collected This Month (T054) ---
-    // Build payment sums by collection ID
+    // Build payment sums by collection ID (needed for attention items)
     const paymentSumByCollection = new Map<string, number>();
     for (const pe of paymentEvents) {
       if (pe.deletedAt !== '') continue;
@@ -186,46 +231,6 @@ export default function DashboardPage() {
     const tenancyById = new Map<string, TenancyWithDisplay>();
     for (const t of tenancies) tenancyById.set(t.id, t);
 
-    const currentMonthCollections = rentCollections.filter(
-      c => c.deletedAt === '' && c.month === currentMonth,
-    );
-
-    if (currentMonthCollections.length > 0) {
-      let rentExpected = 0;
-      let rentReceived = 0;
-      const rentByProperty = new Map<string, { propertyId: string; propertyName: string; expected: number; received: number }>();
-
-      for (const coll of currentMonthCollections) {
-        const received = paymentSumByCollection.get(coll.id) || 0;
-        rentExpected += coll.expectedAmount;
-        rentReceived += received;
-
-        const ten = tenancyById.get(coll.tenancyId);
-        if (ten && ten.isActive) {
-          const key = ten.propertyId;
-          const existing = rentByProperty.get(key) ?? {
-            propertyId: ten.propertyId,
-            propertyName: ten.propertyName,
-            expected: 0,
-            received: 0,
-          };
-          existing.expected += coll.expectedAmount;
-          existing.received += received;
-          rentByProperty.set(key, existing);
-        }
-      }
-
-      setRentThisMonth({
-        totalExpected: rentExpected,
-        totalReceived: rentReceived,
-        totalOutstanding: Math.max(0, rentExpected - rentReceived),
-        byProperty: Array.from(rentByProperty.values()),
-      });
-    } else {
-      setRentThisMonth(null);
-    }
-
-    // --- Compute Attention Items (T016) ---
     const overdueBills: AttentionItem[] = bills
       .filter(b => b.displayStatus === 'overdue')
       .map(b => ({
@@ -320,10 +325,128 @@ export default function DashboardPage() {
     loadAllData().finally(() => setIsRefreshing(false));
   }
 
-  // --- Current month for display ---
-  const currentMonthLabel = moneyThisMonth
-    ? formatMonth(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7))
-    : '';
+  // --- Bills summary (filtered) ---
+  const billsPropertyOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const b of allBills) {
+      if (b.propertyId && !seen.has(b.propertyId)) {
+        seen.set(b.propertyId, b.propertyName);
+      }
+    }
+    return Array.from(seen.entries()).map(([id, name]) => ({ value: id, label: name }));
+  }, [allBills]);
+
+  const billsSummary = useMemo(() => {
+    const { startMonth, endMonth } = getMonthRange(billsDatePreset, billsCustomStart, billsCustomEnd);
+
+    let filtered = allBills.filter(b => isMonthInRange(b.month, startMonth, endMonth));
+    if (billsPropertyFilter !== 'all') {
+      filtered = filtered.filter(b => b.propertyId === billsPropertyFilter);
+    }
+
+    const outstanding = filtered
+      .filter(b => (b.displayStatus === 'pending' || b.displayStatus === 'overdue') && b.amount !== null)
+      .reduce((sum, b) => sum + b.amount!, 0);
+
+    const paid = filtered
+      .filter(b => b.status === 'paid' && b.amount !== null)
+      .reduce((sum, b) => sum + b.amount!, 0);
+
+    const propertyGroups = new Map<string, BillWithDisplay[]>();
+    for (const bill of filtered) {
+      const group = propertyGroups.get(bill.propertyId) ?? [];
+      group.push(bill);
+      propertyGroups.set(bill.propertyId, group);
+    }
+
+    const byProperty: PropertyMoneySummary[] = [];
+    for (const [propertyId, group] of propertyGroups) {
+      const propOutstanding = group
+        .filter(b => (b.displayStatus === 'pending' || b.displayStatus === 'overdue') && b.amount !== null)
+        .reduce((sum, b) => sum + b.amount!, 0);
+      const propPaid = group
+        .filter(b => b.status === 'paid' && b.amount !== null)
+        .reduce((sum, b) => sum + b.amount!, 0);
+      if (propOutstanding === 0 && propPaid === 0) continue;
+      const prop = allProperties.find(p => p.id === propertyId);
+      byProperty.push({
+        propertyId,
+        propertyName: prop?.name ?? 'Unknown',
+        outstanding: propOutstanding,
+        paid: propPaid,
+      });
+    }
+
+    return { outstanding, paid, byProperty, rangeLabel: formatMonthRange(startMonth, endMonth) };
+  }, [allBills, allProperties, billsDatePreset, billsCustomStart, billsCustomEnd, billsPropertyFilter]);
+
+  // --- Rents summary (filtered) ---
+  const rentsPropertyOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of allTenancies) {
+      if (!seen.has(t.propertyId)) {
+        seen.set(t.propertyId, t.propertyName);
+      }
+    }
+    return Array.from(seen.entries()).map(([id, name]) => ({ value: id, label: name }));
+  }, [allTenancies]);
+
+  const rentsSummary = useMemo(() => {
+    const { startMonth, endMonth } = getMonthRange(rentsDatePreset, rentsCustomStart, rentsCustomEnd);
+
+    const paymentSumByCollection = new Map<string, number>();
+    for (const pe of allPaymentEvents) {
+      if (pe.deletedAt !== '') continue;
+      paymentSumByCollection.set(pe.collectionId, (paymentSumByCollection.get(pe.collectionId) || 0) + pe.amount);
+    }
+
+    const tenancyById = new Map<string, TenancyWithDisplay>();
+    for (const t of allTenancies) tenancyById.set(t.id, t);
+
+    let filtered = allRentCollections.filter(
+      c => c.deletedAt === '' && isMonthInRange(c.month, startMonth, endMonth),
+    );
+
+    if (rentsPropertyFilter !== 'all') {
+      filtered = filtered.filter(c => {
+        const ten = tenancyById.get(c.tenancyId);
+        return ten?.propertyId === rentsPropertyFilter;
+      });
+    }
+
+    let rentExpected = 0;
+    let rentReceived = 0;
+    const rentByProperty = new Map<string, { propertyId: string; propertyName: string; expected: number; received: number }>();
+
+    for (const coll of filtered) {
+      const received = paymentSumByCollection.get(coll.id) || 0;
+      rentExpected += coll.expectedAmount;
+      rentReceived += received;
+
+      const ten = tenancyById.get(coll.tenancyId);
+      if (ten) {
+        const key = ten.propertyId;
+        const existing = rentByProperty.get(key) ?? {
+          propertyId: ten.propertyId,
+          propertyName: ten.propertyName,
+          expected: 0,
+          received: 0,
+        };
+        existing.expected += coll.expectedAmount;
+        existing.received += received;
+        rentByProperty.set(key, existing);
+      }
+    }
+
+    return {
+      totalExpected: rentExpected,
+      totalReceived: rentReceived,
+      totalOutstanding: Math.max(0, rentExpected - rentReceived),
+      byProperty: Array.from(rentByProperty.values()),
+      rangeLabel: formatMonthRange(startMonth, endMonth),
+      hasData: filtered.length > 0,
+    };
+  }, [allRentCollections, allPaymentEvents, allTenancies, rentsDatePreset, rentsCustomStart, rentsCustomEnd, rentsPropertyFilter]);
 
   // --- Render ---
   return (
@@ -355,37 +478,91 @@ export default function DashboardPage() {
       {/* Content sections (shown after initial load) */}
       {!isLoading && (
         <div className="flex flex-col gap-8">
-          {/* --- Money This Month (T015) --- */}
-          {moneyThisMonth && (
+          {/* --- Bills --- */}
+          {allBills.length > 0 && (
             <section>
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Money This Month</h2>
-                <p className="text-sm text-slate-500">{currentMonthLabel}</p>
+                <h2 className="text-lg font-semibold text-slate-900">Bills</h2>
+                <p className="text-sm text-slate-500">{billsSummary.rangeLabel}</p>
+              </div>
+
+              {/* Filter bar */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <select
+                  value={billsDatePreset}
+                  onChange={(e) => setBillsDatePreset(e.target.value)}
+                  className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                             focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                             focus:outline-none cursor-pointer sm:w-auto w-full"
+                  aria-label="Bills date range"
+                >
+                  {DATE_PRESET_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                {billsDatePreset === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="month"
+                      value={billsCustomStart}
+                      onChange={(e) => setBillsCustomStart(e.target.value)}
+                      className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                                 focus:outline-none flex-1 sm:w-auto"
+                      aria-label="Bills start month"
+                    />
+                    <span className="text-slate-400 text-sm">to</span>
+                    <input
+                      type="month"
+                      value={billsCustomEnd}
+                      onChange={(e) => setBillsCustomEnd(e.target.value)}
+                      className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                                 focus:outline-none flex-1 sm:w-auto"
+                      aria-label="Bills end month"
+                    />
+                  </div>
+                )}
+
+                <select
+                  value={billsPropertyFilter}
+                  onChange={(e) => setBillsPropertyFilter(e.target.value)}
+                  className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                             focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                             focus:outline-none cursor-pointer sm:w-auto w-full"
+                  aria-label="Bills property filter"
+                >
+                  <option value="all">All properties</option>
+                  {billsPropertyOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-500 mb-1">Outstanding</p>
                   <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                    {formatCurrency(moneyThisMonth.outstanding)}
+                    {formatCurrency(billsSummary.outstanding)}
                   </p>
                 </div>
                 <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-500 mb-1">Paid</p>
                   <p className="text-2xl font-bold text-emerald-700 tabular-nums">
-                    {formatCurrency(moneyThisMonth.paid)}
+                    {formatCurrency(billsSummary.paid)}
                   </p>
                 </div>
               </div>
 
-              {moneyThisMonth.byProperty.length > 0 && (
+              {billsSummary.byProperty.length > 0 && (
                 <div className="mt-4 bg-white border border-slate-200 rounded-lg overflow-hidden">
                   <div className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wider">
                     <span>Property</span>
                     <span className="text-right">Outstanding</span>
                     <span className="text-right">Paid</span>
                   </div>
-                  {moneyThisMonth.byProperty.map(row => (
+                  {billsSummary.byProperty.map(row => (
                     <div key={row.propertyId} className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-slate-50 last:border-b-0 text-sm">
                       <span className="text-slate-900 truncate">{row.propertyName}</span>
                       <span className="text-right text-slate-900 tabular-nums">{formatCurrency(row.outstanding)}</span>
@@ -397,43 +574,97 @@ export default function DashboardPage() {
             </section>
           )}
 
-          {/* --- Rent Collected This Month (T054) --- */}
-          {rentThisMonth && (
+          {/* --- Rent Collected --- */}
+          {allTenancies.length > 0 && (
             <section>
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-slate-900">Rent Collected This Month</h2>
-                <p className="text-sm text-slate-500">{currentMonthLabel}</p>
+                <h2 className="text-lg font-semibold text-slate-900">Rent Collected</h2>
+                <p className="text-sm text-slate-500">{rentsSummary.rangeLabel}</p>
+              </div>
+
+              {/* Filter bar */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <select
+                  value={rentsDatePreset}
+                  onChange={(e) => setRentsDatePreset(e.target.value)}
+                  className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                             focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                             focus:outline-none cursor-pointer sm:w-auto w-full"
+                  aria-label="Rent date range"
+                >
+                  {DATE_PRESET_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                {rentsDatePreset === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="month"
+                      value={rentsCustomStart}
+                      onChange={(e) => setRentsCustomStart(e.target.value)}
+                      className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                                 focus:outline-none flex-1 sm:w-auto"
+                      aria-label="Rent start month"
+                    />
+                    <span className="text-slate-400 text-sm">to</span>
+                    <input
+                      type="month"
+                      value={rentsCustomEnd}
+                      onChange={(e) => setRentsCustomEnd(e.target.value)}
+                      className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                                 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                                 focus:outline-none flex-1 sm:w-auto"
+                      aria-label="Rent end month"
+                    />
+                  </div>
+                )}
+
+                <select
+                  value={rentsPropertyFilter}
+                  onChange={(e) => setRentsPropertyFilter(e.target.value)}
+                  className="rounded-lg border border-slate-300 shadow-sm px-3 py-2 text-sm
+                             focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+                             focus:outline-none cursor-pointer sm:w-auto w-full"
+                  aria-label="Rent property filter"
+                >
+                  <option value="all">All properties</option>
+                  {rentsPropertyOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-500 mb-1">Expected</p>
                   <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                    {formatCurrency(rentThisMonth.totalExpected)}
+                    {formatCurrency(rentsSummary.totalExpected)}
                   </p>
                 </div>
                 <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-500 mb-1">Received</p>
                   <p className="text-2xl font-bold text-emerald-700 tabular-nums">
-                    {formatCurrency(rentThisMonth.totalReceived)}
+                    {formatCurrency(rentsSummary.totalReceived)}
                   </p>
                 </div>
                 <div className="flex-1 bg-white border border-slate-200 rounded-lg p-4">
                   <p className="text-sm text-slate-500 mb-1">Outstanding</p>
                   <p className="text-2xl font-bold text-slate-900 tabular-nums">
-                    {formatCurrency(rentThisMonth.totalOutstanding)}
+                    {formatCurrency(rentsSummary.totalOutstanding)}
                   </p>
                 </div>
               </div>
 
-              {rentThisMonth.byProperty.length > 0 && (
+              {rentsSummary.byProperty.length > 0 && (
                 <div className="mt-4 bg-white border border-slate-200 rounded-lg overflow-hidden">
                   <div className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wider">
                     <span>Property</span>
                     <span className="text-right">Expected</span>
                     <span className="text-right">Received</span>
                   </div>
-                  {rentThisMonth.byProperty.map(row => (
+                  {rentsSummary.byProperty.map(row => (
                     <div key={row.propertyId} className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-slate-50 last:border-b-0 text-sm">
                       <span className="text-slate-900 truncate">{row.propertyName}</span>
                       <span className="text-right text-slate-900 tabular-nums">{formatCurrency(row.expected)}</span>
