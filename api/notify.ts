@@ -356,7 +356,29 @@ export default async function handler(
           if (tenancy.isActive !== 'true') continue;
           const propName = propertyMap.get(tenancy.propertyId);
           if (!propName) continue;
-          if (tenancy.leaseStartDate > istToday) continue;
+          // Compute the first month for which rent is collectable.
+          // Rent-in-arrears: tenant pays for occupancy month at the start
+          // of the following month. So first eligible month = month after
+          // lease_start_date.
+          const leaseStart = tenancy.leaseStartDate; // e.g., "2026-05-08"
+          if (!leaseStart) {
+            continue; // no lease start, can't compute eligibility
+          }
+          const leaseStartYear = Number(leaseStart.slice(0, 4));
+          const leaseStartMonth = Number(leaseStart.slice(5, 7)); // 1-12
+          // Add 1 month, handle December rollover.
+          let firstRentYear = leaseStartYear;
+          let firstRentMonth = leaseStartMonth + 1;
+          if (firstRentMonth > 12) {
+            firstRentMonth = 1;
+            firstRentYear++;
+          }
+          const firstRentMonthStr =
+            `${firstRentYear}-${String(firstRentMonth).padStart(2, '0')}`;
+          // currentMonth is already computed in scope, e.g., "2026-06"
+          if (currentMonth < firstRentMonthStr) {
+            continue; // first rent month is still in the future
+          }
           if (tenancy.leaseEndDate && tenancy.leaseEndDate < firstDayOfMonth) continue;
 
           // Idempotency check
