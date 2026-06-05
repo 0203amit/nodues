@@ -301,14 +301,6 @@ export default async function handler(
       // Continue — rent features degraded but bills/todos unaffected
     }
 
-    try {
-      console.log('[debug] rentRows counts:', {
-        tenancies: tenancyRows.length,
-        collections: collectionRows.length,
-        payments: paymentRows.length,
-      });
-    } catch (_dbg1) { /* debug log safe */ }
-
     // Build rental lookup maps
     const tenancyMap = new Map<string, {
       name: string; unitLabel: string; propertyId: string;
@@ -332,18 +324,6 @@ export default async function handler(
       }
     }
 
-    try {
-      console.log('[debug] tenancyMap size:', tenancyMap.size);
-      for (const [id, t] of tenancyMap) {
-        console.log('[debug] tenancy:', {
-          id, name: t.name, isActive: t.isActive,
-          deletedAt: t.deletedAt, propertyId: t.propertyId,
-          leaseStart: t.leaseStartDate, leaseEnd: t.leaseEndDate,
-          propertyName: propertyMap.get(t.propertyId),
-        });
-      }
-    } catch (_dbg2) { /* debug log safe */ }
-
     // Build existing composite key set (non-deleted collections only)
     const existingCompositeKeys = new Set<string>();
     for (const row of collectionRows) {
@@ -364,8 +344,6 @@ export default async function handler(
       paymentSumByCollection.set(collId, (paymentSumByCollection.get(collId) || 0) + amount);
     }
 
-    let rentCollectionsCreated = 0;
-
     // Block 2: Auto-generate rent collections (R-005)
     try {
       const currentMonth = istToday.slice(0, 7); // YYYY-MM
@@ -373,38 +351,17 @@ export default async function handler(
 
       for (const [tenancyId, tenancy] of tenancyMap) {
         try {
-          console.log('[debug] processing tenancy:', tenancyId, tenancy.name);
-
           // Skip checks per FR-018
-          if (tenancy.deletedAt !== '') {
-            console.log('[debug] skip: deleted', tenancyId);
-            continue;
-          }
-          if (tenancy.isActive !== 'true') {
-            console.log('[debug] skip: inactive', tenancyId, 'isActive value:', JSON.stringify(tenancy.isActive));
-            continue;
-          }
+          if (tenancy.deletedAt !== '') continue;
+          if (tenancy.isActive !== 'true') continue;
           const propName = propertyMap.get(tenancy.propertyId);
-          if (!propName) {
-            console.log('[debug] skip: no property', tenancyId, 'propertyId:', tenancy.propertyId);
-            continue;
-          }
-          if (tenancy.leaseStartDate > istToday) {
-            console.log('[debug] skip: lease not started', tenancyId, 'leaseStart:', tenancy.leaseStartDate, 'istToday:', istToday);
-            continue;
-          }
-          if (tenancy.leaseEndDate && tenancy.leaseEndDate < firstDayOfMonth) {
-            console.log('[debug] skip: lease expired', tenancyId, 'leaseEnd:', tenancy.leaseEndDate, 'firstDayOfMonth:', firstDayOfMonth);
-            continue;
-          }
+          if (!propName) continue;
+          if (tenancy.leaseStartDate > istToday) continue;
+          if (tenancy.leaseEndDate && tenancy.leaseEndDate < firstDayOfMonth) continue;
 
           // Idempotency check
           const compositeKey = `${tenancyId}|${currentMonth}`;
-          if (existingCompositeKeys.has(compositeKey)) {
-            console.log('[debug] skip: duplicate', tenancyId, compositeKey);
-            continue;
-          }
-          console.log('[debug] CREATING collection for:', tenancyId, compositeKey);
+          if (existingCompositeKeys.has(compositeKey)) continue;
 
           // Compute due date with clamping
           const [yearStr, monStr] = currentMonth.split('-');
@@ -424,7 +381,6 @@ export default async function handler(
 
           // Append to Sheet
           await sheetsUpdate(accessToken, sheetId, `'RentCollections'!A${collectionRows.length + 2}:J${collectionRows.length + 2}`, [newRow]);
-          rentCollectionsCreated++;
           collectionRows.push(newRow); // keep local state in sync
           existingCompositeKeys.add(compositeKey);
 
@@ -454,16 +410,6 @@ export default async function handler(
         pushesSent: 0,
         pushesSkipped,
         errors: [],
-        _debug: {
-          earlyExit: 'no_active_subscriptions',
-          currentISTHour,
-          istToday,
-          tenanciesRead: tenancyRows.length,
-          collectionsRead: collectionRows.length,
-          paymentsRead: paymentRows.length,
-          tenanciesInMap: tenancyMap.size,
-          rentCollectionsCreated,
-        },
       });
       return;
     }
@@ -581,16 +527,6 @@ export default async function handler(
         pushesSent: 0,
         pushesSkipped: pushesSkipped + activeSubscriptions.length,
         errors: [],
-        _debug: {
-          tenanciesRead: tenancyRows.length,
-          collectionsRead: collectionRows.length,
-          paymentsRead: paymentRows.length,
-          tenanciesInMap: tenancyMap.size,
-          rentCollectionsCreated,
-          istToday,
-          currentMonth: istToday.slice(0, 7),
-          firstDayOfMonth: istToday.slice(0, 7) + '-01',
-        },
       });
       return;
     }
@@ -674,16 +610,6 @@ export default async function handler(
       pushesSent,
       pushesSkipped,
       errors,
-      _debug: {
-        tenanciesRead: tenancyRows.length,
-        collectionsRead: collectionRows.length,
-        paymentsRead: paymentRows.length,
-        tenanciesInMap: tenancyMap.size,
-        rentCollectionsCreated,
-        istToday,
-        currentMonth: istToday.slice(0, 7),
-        firstDayOfMonth: istToday.slice(0, 7) + '-01',
-      },
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Internal server error' });
