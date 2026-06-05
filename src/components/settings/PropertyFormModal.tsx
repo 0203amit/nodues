@@ -20,6 +20,7 @@ export default function PropertyFormModal({
   const [name, setName] = useState(property?.name ?? '');
   const [address, setAddress] = useState(property?.address ?? '');
   const [notes, setNotes] = useState(property?.notes ?? '');
+  const [isRental, setIsRental] = useState(property?.isRental ?? false);
   const [nameError, setNameError] = useState('');
 
   // Close on Escape key
@@ -46,6 +47,7 @@ export default function PropertyFormModal({
       name: trimmedName,
       address: address.trim(),
       notes: notes.trim(),
+      isRental,
     });
   }
 
@@ -120,6 +122,18 @@ export default function PropertyFormModal({
                          focus:outline-none"
               placeholder="Any additional notes"
             />
+          </label>
+
+          {/* Rental checkbox */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isRental}
+              onChange={(e) => setIsRental(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-indigo-600
+                         focus:ring-indigo-500 cursor-pointer"
+            />
+            <span className="text-sm text-slate-700">This is a rental property</span>
           </label>
 
           {/* Actions */}

@@ -21,6 +21,7 @@ export interface Property {
   active: boolean;
   createdAt: string;
   deletedAt: string;
+  isRental: boolean;
 }
 
 /** Fields editable via the Property form. */
@@ -28,6 +29,7 @@ export interface PropertyFormData {
   name: string;
   address: string;
   notes: string;
+  isRental: boolean;
 }
 
 // --- BillType ---

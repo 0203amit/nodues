@@ -19,12 +19,22 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4">
-      {/* Top row: name + status */}
+      {/* Top row: name + badges */}
       <div className="flex items-center justify-between gap-2 mb-1">
         <h3 className="text-base font-semibold text-slate-900 truncate">
           {property.name}
         </h3>
-        <StatusBadge active={property.active} />
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {property.isRental && (
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700"
+              aria-label="Rental property"
+            >
+              Rental
+            </span>
+          )}
+          <StatusBadge active={property.active} />
+        </div>
       </div>
 
       {/* Address */}

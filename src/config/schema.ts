@@ -21,7 +21,7 @@ export const TAB_NAMES = [
 export const HEADER_DEFINITIONS: HeaderDefinition[] = [
   {
     tabName: 'Properties',
-    headers: ['id', 'name', 'address', 'notes', 'active', 'created_at', 'deleted_at'],
+    headers: ['id', 'name', 'address', 'notes', 'active', 'created_at', 'deleted_at', 'is_rental'],
   },
   {
     tabName: 'BillTypes',

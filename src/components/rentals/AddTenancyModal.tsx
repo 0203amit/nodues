@@ -111,7 +111,9 @@ export default function AddTenancyModal({
     });
   }
 
+  const rentalProperties = properties.filter((p) => p.isRental);
   const noProperties = properties.length === 0;
+  const noRentalProperties = !noProperties && rentalProperties.length === 0;
 
   // Resolve property name for read-only display in edit mode
   const editPropertyName = isEdit && tenancy
@@ -136,11 +138,13 @@ export default function AddTenancyModal({
           {isEdit ? 'Edit Tenancy' : 'Add Tenancy'}
         </h2>
 
-        {/* No-properties guard */}
-        {!isEdit && noProperties ? (
+        {/* No-properties / no-rental-properties guard */}
+        {!isEdit && (noProperties || noRentalProperties) ? (
           <div className="text-center py-8">
             <p className="text-sm text-slate-600 mb-4">
-              No active properties. Add a property in Settings first.
+              {noProperties
+                ? 'No active properties. Add a property in Settings first.'
+                : 'No rental properties found. Mark a property as rental in Settings \u2192 Properties first.'}
             </p>
             <button
               type="button"
@@ -181,7 +185,7 @@ export default function AddTenancyModal({
                              focus:outline-none cursor-pointer"
                 >
                   <option value="">Select a property</option>
-                  {properties.map((p) => (
+                  {rentalProperties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>

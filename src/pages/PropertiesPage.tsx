@@ -84,7 +84,7 @@ export default function PropertiesPage() {
           action: 'property_added',
           entityType: 'property',
           entityId: newProp.id,
-          summary: `${data.name}`,
+          summary: data.isRental ? `${data.name} (rental)` : data.name,
         });
         showToast('Property added.', 'success');
       } else if (modalMode === 'edit' && editTarget) {
@@ -92,6 +92,10 @@ export default function PropertiesPage() {
         setProperties((prev) =>
           prev.map((p) => (p.id === updated.id ? updated : p)),
         );
+        const rentalChanged = editTarget.isRental !== data.isRental;
+        const rentalNote = rentalChanged
+          ? (data.isRental ? ' (marked as rental)' : ' (unmarked as rental)')
+          : (data.isRental ? ' (rental)' : '');
         await appendActivityLogSafe(accessToken!, spreadsheetId, {
           id: uuidv4(),
           timestamp: new Date().toISOString(),
@@ -99,7 +103,7 @@ export default function PropertiesPage() {
           action: 'property_updated',
           entityType: 'property',
           entityId: editTarget.id,
-          summary: `${data.name}`,
+          summary: `${data.name}${rentalNote}`,
         });
         showToast('Property updated.', 'success');
       }

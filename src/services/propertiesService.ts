@@ -26,6 +26,7 @@ export function parseRow(row: RowWithIndex): Property | null {
     active: v[COL.active] === 'true',
     createdAt: v[COL.created_at] ?? '',
     deletedAt: v[COL.deleted_at] ?? '',
+    isRental: (v[COL.is_rental] ?? '').toLowerCase() === 'true',
   };
 }
 
@@ -38,6 +39,7 @@ export function serializeRow(property: Property): string[] {
     String(property.active),
     property.createdAt,
     property.deletedAt,
+    String(property.isRental),
   ];
 }
 
@@ -74,6 +76,7 @@ export async function addProperty(
     active: true,
     createdAt,
     deletedAt: '',
+    isRental: data.isRental,
   };
   await appendRows(accessToken, spreadsheetId, TAB_NAME, [serializeRow(property)]);
   return property;
@@ -90,6 +93,7 @@ export async function updateProperty(
     name: data.name,
     address: data.address,
     notes: data.notes,
+    isRental: data.isRental,
   };
   await updateRow(accessToken, spreadsheetId, TAB_NAME, property._rowIndex, serializeRow(updated));
   return updated;
