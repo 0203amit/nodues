@@ -20,8 +20,9 @@ import {
   updateRentCollection,
   softDeleteRentCollection,
   undoDeleteRentCollection,
+  shiftMonth,
 } from '../services/rentCollectionsService';
-import { formatCurrency, formatMonth } from '../services/billsService';
+import { formatCurrency, formatMonth, formatDateDisplay } from '../services/billsService';
 import {
   fetchPaymentEvents,
   addPaymentEvent,
@@ -54,8 +55,16 @@ function getISTToday(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
-function getCurrentMonth(): string {
-  return getISTToday().slice(0, 7);
+/** Latest occupancy month with a collection: rent for last month is generated this month. */
+function getLatestRentMonth(): string {
+  return shiftMonth(getISTToday().slice(0, 7), -1);
+}
+
+/** "2027-08-31" → "2027-09-01" (UTC math, no timezone drift). */
+function dayAfter(date: string): string {
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 function tenancySummary(action: string, t: TenancyWithDisplay): string {
@@ -94,7 +103,7 @@ export default function RentalsPage() {
   const [tenancies, setTenancies] = useState<TenancyWithDisplay[]>([]);
   const [collections, setCollections] = useState<RentCollection[]>([]);
   const [paymentEvents, setPaymentEvents] = useState<PaymentEvent[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const [selectedMonth, setSelectedMonth] = useState(getLatestRentMonth);
   const [filterProperty, setFilterProperty] = useState<string>('all');
   const [tenanciesExpanded, setTenanciesExpanded] = useState(false);
   const [receivedExpanded, setReceivedExpanded] = useState(false);
@@ -103,6 +112,7 @@ export default function RentalsPage() {
   // Modal targets
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TenancyWithDisplay | null>(null);
+  const [renewSource, setRenewSource] = useState<TenancyWithDisplay | null>(null);
   const [markReceivedFullTarget, setMarkReceivedFullTarget] =
     useState<RentCollectionWithDisplay | null>(null);
   const [markReceivedPartialTarget, setMarkReceivedPartialTarget] =
@@ -370,6 +380,17 @@ export default function RentalsPage() {
       group.tenancies.push(t);
     }
 
+    // Current leases first, ended (renewed/past) leases below as history; newest start first
+    const today = getISTToday();
+    const isEnded = (t: TenancyWithDisplay) => t.leaseEndDate !== '' && t.leaseEndDate < today;
+    for (const group of groups.values()) {
+      group.tenancies.sort(
+        (a, b) =>
+          Number(isEnded(a)) - Number(isEnded(b)) ||
+          b.leaseStartDate.localeCompare(a.leaseStartDate),
+      );
+    }
+
     return Array.from(groups.values());
   }, [tenancies, filterProperty]);
 
@@ -395,25 +416,30 @@ export default function RentalsPage() {
 
   // --- Tenancy Handlers ---
 
-  async function handleAddTenancy(data: TenancyFormData) {
+  /** Adds a tenancy; with `isRenewal`, logs it as a renewal (old tenancy is left untouched). */
+  async function handleAddTenancy(data: TenancyFormData, isRenewal = false) {
     setIsSaving(true);
     try {
       const newTenancy = await addTenancy(accessToken!, spreadsheetId, data);
       const propName = propertyMap.get(data.propertyId) ?? 'Unknown';
       const unit = data.unitLabel ? ` (${data.unitLabel})` : '';
+      const lease = `${formatDateDisplay(data.leaseStartDate)} \u2013 ${data.leaseEndDate ? formatDateDisplay(data.leaseEndDate) : 'Indefinite'}`;
       await appendActivityLogSafe(accessToken!, spreadsheetId, {
         id: uuidv4(),
         timestamp: new Date().toISOString(),
         userEmail: 'user',
-        action: 'tenancy_added',
+        action: isRenewal ? 'tenancy_renewed' : 'tenancy_added',
         entityType: 'tenancy',
         entityId: newTenancy.id,
-        summary: `Tenant added: ${data.name}${unit} \u2014 ${propName}`,
+        summary: isRenewal
+          ? `Tenant renewed: ${data.name}${unit} \u2014 ${propName} (${lease})`
+          : `Tenant added: ${data.name}${unit} \u2014 ${propName}`,
       });
       await loadData();
       setAddModalOpen(false);
+      setRenewSource(null);
       setTenanciesExpanded(true);
-      showToast('Tenant added.', 'success');
+      showToast(isRenewal ? 'Tenant renewed.' : 'Tenant added.', 'success');
     } catch {
       showToast('Failed to add tenant.', 'error');
     } finally {
@@ -797,6 +823,7 @@ export default function RentalsPage() {
                             key={tenancy.id}
                             tenancy={tenancy}
                             onEdit={(t) => setEditTarget(t)}
+                            onRenew={(t) => setRenewSource(t)}
                             onToggle={handleToggleTenancy}
                             onDelete={handleDeleteTenancy}
                             isLoading={isSaving}
@@ -1015,6 +1042,23 @@ export default function RentalsPage() {
           isSaving={isSaving}
           onSubmit={handleAddTenancy}
           onClose={() => !isSaving && setAddModalOpen(false)}
+        />
+      )}
+
+      {/* Renew Tenancy Modal — creates a new tenancy; the old lease stays as history */}
+      {renewSource && (
+        <AddTenancyModal
+          mode="add"
+          tenancy={{
+            ...renewSource,
+            leaseStartDate: dayAfter(renewSource.leaseEndDate),
+            leaseEndDate: '',
+            notes: '',
+          }}
+          properties={activeProperties}
+          isSaving={isSaving}
+          onSubmit={(data) => handleAddTenancy(data, true)}
+          onClose={() => !isSaving && setRenewSource(null)}
         />
       )}
 

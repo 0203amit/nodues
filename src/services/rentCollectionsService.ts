@@ -108,7 +108,18 @@ export function checkDuplicate(
   return null;
 }
 
-/** Compute display status from payment sums + month-end threshold. */
+/** Shift a YYYY-MM month by delta months. */
+export function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Compute display status from payment sums + month-end threshold.
+ * `month` is the occupancy month; rent is paid in the following month,
+ * so it turns overdue once that following month has ended.
+ */
 export function computeRentStatus(
   expectedAmount: number,
   totalReceived: number,
@@ -117,7 +128,7 @@ export function computeRentStatus(
 ): RentDisplayStatus {
   const todayStr =
     today ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const [year, mon] = month.split('-').map(Number);
+  const [year, mon] = shiftMonth(month, 1).split('-').map(Number);
   const lastDayOfMonth = new Date(year, mon, 0).getDate();
   const monthEnd = `${year}-${String(mon).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
   const monthEnded = todayStr > monthEnd;
@@ -158,7 +169,7 @@ export async function addRentCollection(
 ): Promise<RentCollection> {
   const id = uuidv4();
   const now = new Date().toISOString();
-  const dueDate = computeDueDate(data.month, data.rentDueDay);
+  const dueDate = computeDueDate(shiftMonth(data.month, 1), data.rentDueDay);
   const compositeKey = computeCompositeKey(data.tenancyId, data.month);
 
   const collection: RentCollection = {

@@ -101,6 +101,13 @@ interface OverdueItem {
 
 // --- Helpers ---
 
+/** Shift a YYYY-MM month by delta months. Duplicates src/services/rentCollectionsService.ts. */
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 async function sheetsGet(
   token: string,
   sheetId: string,
@@ -347,7 +354,10 @@ export default async function handler(
     // Block 2: Auto-generate rent collections (R-005)
     try {
       const currentMonth = istToday.slice(0, 7); // YYYY-MM
-      const firstDayOfMonth = currentMonth + '-01';
+      // Rent-in-arrears: a collection's `month` is the OCCUPANCY month.
+      // It is generated at the start of the following month and due on
+      // rent_due_day of that following month (e.g. Oct rent → due 1 Nov).
+      const targetMonth = shiftMonth(currentMonth, -1);
 
       for (const [tenancyId, tenancy] of tenancyMap) {
         try {
@@ -356,33 +366,13 @@ export default async function handler(
           if (tenancy.isActive !== 'true') continue;
           const propName = propertyMap.get(tenancy.propertyId);
           if (!propName) continue;
-          // Compute the first month for which rent is collectable.
-          // Rent-in-arrears: tenant pays for occupancy month at the start
-          // of the following month. So first eligible month = month after
-          // lease_start_date.
           const leaseStart = tenancy.leaseStartDate; // e.g., "2026-05-08"
-          if (!leaseStart) {
-            continue; // no lease start, can't compute eligibility
-          }
-          const leaseStartYear = Number(leaseStart.slice(0, 4));
-          const leaseStartMonth = Number(leaseStart.slice(5, 7)); // 1-12
-          // Add 1 month, handle December rollover.
-          let firstRentYear = leaseStartYear;
-          let firstRentMonth = leaseStartMonth + 1;
-          if (firstRentMonth > 12) {
-            firstRentMonth = 1;
-            firstRentYear++;
-          }
-          const firstRentMonthStr =
-            `${firstRentYear}-${String(firstRentMonth).padStart(2, '0')}`;
-          // currentMonth is already computed in scope, e.g., "2026-06"
-          if (currentMonth < firstRentMonthStr) {
-            continue; // first rent month is still in the future
-          }
-          if (tenancy.leaseEndDate && tenancy.leaseEndDate < firstDayOfMonth) continue;
+          if (!leaseStart) continue; // no lease start, can't compute eligibility
+          if (leaseStart.slice(0, 7) > targetMonth) continue; // not occupied yet
+          if (tenancy.leaseEndDate && tenancy.leaseEndDate < targetMonth + '-01') continue;
 
           // Idempotency check
-          const compositeKey = `${tenancyId}|${currentMonth}`;
+          const compositeKey = `${tenancyId}|${targetMonth}`;
           if (existingCompositeKeys.has(compositeKey)) continue;
 
           // Compute due date with clamping
@@ -397,7 +387,7 @@ export default async function handler(
           const newId = crypto.randomUUID();
           const nowISO = new Date().toISOString();
           const newRow = [
-            newId, tenancyId, currentMonth, String(tenancy.rentAmount),
+            newId, tenancyId, targetMonth, String(tenancy.rentAmount),
             dueDate, '', compositeKey, nowISO, nowISO, '',
           ];
 
@@ -413,7 +403,7 @@ export default async function handler(
             action: 'rent_auto_generated',
             entityType: 'rent_collection',
             entityId: newId,
-            summary: `Rent auto-generated: ${tenancy.name}${unitPart} \u2014 ${propName} ${formatMonthLabel(currentMonth)}`,
+            summary: `Rent auto-generated: ${tenancy.name}${unitPart} \u2014 ${propName} ${formatMonthLabel(targetMonth)}`,
           });
         } catch (innerErr) {
           console.error(`[notify] Rent auto-gen failed for tenancy ${tenancyId}:`, innerErr);
@@ -512,7 +502,8 @@ export default async function handler(
         if (deletedAt !== '') continue;
 
         const month = row[COLLECTIONS_COL.MONTH] || '';
-        if (!month || month >= currentMonth) continue; // only past months are overdue
+        // Overdue once the payment month (occupancy month + 1) has ended
+        if (!month || shiftMonth(month, 1) >= currentMonth) continue;
 
         const collId = row[COLLECTIONS_COL.ID] || '';
         const expectedAmount = Number(row[COLLECTIONS_COL.EXPECTED_AMOUNT]) || 0;

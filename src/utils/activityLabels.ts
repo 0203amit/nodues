@@ -33,6 +33,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   // Phase 16: Rentals
   tenancy_added: 'Tenant added',
   tenancy_updated: 'Tenant updated',
+  tenancy_renewed: 'Tenant renewed',
   tenancy_toggled: 'Tenant toggled',
   tenancy_deleted: 'Tenant deleted',
   tenancy_restored: 'Tenant restored',

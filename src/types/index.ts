@@ -315,7 +315,7 @@ export type ActionType =
   | 'category_added' | 'category_updated' | 'category_deleted' | 'category_restored'
   | 'push_enabled' | 'push_disabled'
   // Phase 16: Rentals
-  | 'tenancy_added' | 'tenancy_updated' | 'tenancy_toggled'
+  | 'tenancy_added' | 'tenancy_updated' | 'tenancy_toggled' | 'tenancy_renewed'
   | 'tenancy_deleted' | 'tenancy_restored'
   | 'rent_auto_generated'
   | 'payment_received' | 'payment_deleted';

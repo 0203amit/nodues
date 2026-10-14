@@ -1,10 +1,11 @@
-import { Landmark, Pencil, Power, Trash2 } from 'lucide-react';
+import { Landmark, Pencil, Power, RefreshCw, Trash2 } from 'lucide-react';
 import type { TenancyWithDisplay } from '../../types';
 import { formatCurrency } from '../../services/billsService';
 
 export interface TenancyCardProps {
   tenancy: TenancyWithDisplay;
   onEdit: (tenancy: TenancyWithDisplay) => void;
+  onRenew: (tenancy: TenancyWithDisplay) => void;
   onToggle: (tenancy: TenancyWithDisplay) => void;
   onDelete: (tenancy: TenancyWithDisplay) => void;
   isLoading: boolean;
@@ -27,10 +28,13 @@ function ordinalSuffix(n: number): string {
 export default function TenancyCard({
   tenancy,
   onEdit,
+  onRenew,
   onToggle,
   onDelete,
   isLoading,
 }: TenancyCardProps) {
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const isEnded = tenancy.leaseEndDate !== '' && tenancy.leaseEndDate < todayIST;
   const displayName = tenancy.unitLabel
     ? `${tenancy.name} (${tenancy.unitLabel})`
     : tenancy.name;
@@ -57,7 +61,11 @@ export default function TenancyCard({
             {formatCurrency(tenancy.rentAmount)}
           </p>
           <div className="mt-1">
-            {tenancy.isActive ? (
+            {isEnded ? (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                Ended
+              </span>
+            ) : tenancy.isActive ? (
               <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
                 Active
               </span>
@@ -86,6 +94,23 @@ export default function TenancyCard({
           <Pencil className="w-4 h-4" />
           <span className="hidden sm:inline">Edit</span>
         </button>
+
+        {tenancy.leaseEndDate && (
+          <button
+            type="button"
+            onClick={() => onRenew(tenancy)}
+            disabled={isLoading}
+            className="text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50
+                       font-medium text-sm px-2 py-1 rounded transition-colors cursor-pointer
+                       min-h-11 min-w-11 inline-flex items-center justify-center gap-1
+                       disabled:opacity-50 disabled:cursor-not-allowed
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            aria-label="Renew lease"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden sm:inline">Renew</span>
+          </button>
+        )}
 
         <button
           type="button"

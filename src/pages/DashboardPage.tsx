@@ -404,7 +404,8 @@ export default function DashboardPage() {
     for (const t of allTenancies) tenancyById.set(t.id, t);
 
     let filtered = allRentCollections.filter(
-      c => c.deletedAt === '' && isMonthInRange(c.month, startMonth, endMonth),
+      // Filter by payment (due) month, not occupancy month, so "Current Month" = rent due this month
+      c => c.deletedAt === '' && isMonthInRange(c.dueDate.slice(0, 7), startMonth, endMonth),
     );
 
     if (rentsPropertyFilter !== 'all') {
